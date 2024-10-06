@@ -14,25 +14,21 @@ from typing import Tuple
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def synchronize_time_with_exchange(exchange: ccxt.Exchange) -> int:
-    """
-    Synchronize the local system time with the exchange server time.
-    
-    Args:
-    - exchange: ccxt.Exchange object
-    
-    Returns:
-    - time_offset: Time offset in milliseconds
-    """
+import ccxt
+import logging
+
+def synchronize_time_with_exchange(exchange):
     try:
-        server_time = exchange.milliseconds()
-        local_time = int(datetime.now().timestamp() * 1000)
-        time_offset = server_time - local_time
-        logging.info("Time synchronized with exchange. Offset: %d milliseconds", time_offset)
-        return time_offset
-    except ccxt.BaseError as sync_error:
-        logging.error("Failed to synchronize time with exchange: %s", sync_error)
-        raise sync_error
+        exchange_time = exchange.fetch_time()
+        logging.info(f"Exchange time: {exchange_time}")
+        # Add your logic for time synchronization here.
+    except (ccxt.NetworkError, ccxt.ExchangeError, ccxt.BaseError) as e:
+        logging.error(f"Error synchronizing time with exchange: {type(e).__name__}, {str(e)}")
+        return None
+    except Exception as e:
+        logging.error(f"Unexpected error: {str(e)}")
+        return None
+
 
 # fetch_data.py
 
@@ -57,57 +53,27 @@ def get_tweets(api_key, api_secret, query):
     tweets = api.search(q=query, count=100, lang='en')
     return [tweet.text for tweet in tweets]
 
-def analyze_sentiment(tweets):
-    sentiment_scores = [TextBlob(tweet).sentiment.polarity for tweet in tweets]
-    return np.mean(sentiment_scores)
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-def fetch_ohlcv(exchange: ccxt.Exchange, symbol: str, timeframe: str = '1h', limit: int = 100) -> pd.DataFrame:
-    """
-    Fetch OHLCV data for a given symbol and timeframe from the exchange.
-    
-    Args:
-    - exchange: ccxt.Exchange object
-    - symbol: Trading pair symbol (e.g., 'BTCUSDT')
-    - timeframe: Timeframe for OHLCV data (default: '1h')
-    - limit: Number of data points to fetch (default: 100)
-    
-    Returns:
-    - df: DataFrame containing OHLCV data
-    """
+def analyze_sentiment(text):
+    analyzer = SentimentIntensityAnalyzer()
+    sentiment = analyzer.polarity_scores(text)
+    logging.info(f"Sentiment analysis: {sentiment}")
+    return sentiment
+
+
+import pandas as pd
+
+def fetch_ohlcv(exchange, symbol, timeframe='1m', limit=100):
     try:
-        # Synchronize time with exchange
-        time_offset = synchronize_time_with_exchange(exchange)
-        
-        # Fetch OHLCV data
-        params = {
-            'param1': Value,
-            'param2': Value,
-            'recvWindow': 10000,  # Adjust recvWindow as needed
-            'timestamp': exchange.milliseconds() + time_offset
-        }
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit, params=params)
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        logging.info(f"Fetched {len(ohlcv)} data points for {symbol} on {timeframe} timeframe.")
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        logging.info("Fetched OHLCV data for %s", symbol)
-        
-        if df.isnull().values.any():
-            raise ValueError("Fetched data contains null values")
-        
         return df
-    except (ccxt.NetworkError, ccxt.ExchangeError, ccxt.BaseError) as e:
-        logging.error("Error fetching OHLCV data: %s", e)
-        raise e
-        
-        
-    except ccxt.NetworkError as net_error:
-        logging.error("Network error while fetching OHLCV data: %s", net_error)
-        raise net_error
-    except ccxt.ExchangeError as exchange_error:
-        logging.error("Exchange error while fetching OHLCV data: %s", exchange_error)
-        raise exchange_error
-    except ccxt.BaseError as base_error:
-        logging.error("Unexpected error while fetching OHLCV data: %s", base_error)
-        raise base_error
+    except Exception as e:
+        logging.error(f"Error fetching OHLCV data: {str(e)}")
+        return None
+
 
 def perform_technical_analysis(df: pd.DataFrame, sma_lengths: Tuple[int, int] = (20, 50), rsi_length: int = 14, macd_params: Tuple[int, int, int] = (12, 26, 9)) -> pd.DataFrame:
     """
@@ -186,6 +152,8 @@ def detect_signals(df: pd.DataFrame, sma_lengths: Tuple[int, int]) -> None:
                 logging.info("Bullish MACD crossover detected")
             elif previous['MACD'] > previous['MACD_signal'] and latest['MACD'] < latest['MACD_signal']:
                 logging.info("Bearish MACD crossover detected")
+                
+        
         
     except Exception as e:
         logging.error("An error occurred during signal detection: %s", e)

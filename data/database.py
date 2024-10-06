@@ -1,6 +1,8 @@
 import sqlite3
 import pandas as pd
 import logging
+import ccxt
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,12 +29,33 @@ def store_data_to_db(conn, df, table_name):
 def fetch_historical_data(conn, table_name):
     """Fetch historical data from a database table into a DataFrame."""
     try:
-        query = f"SELECT * FROM {table_name}"
+        query = f"SELECT * FROM {table_name} ORDER BY Date DESC"  # Fetch the most recent data
         df = pd.read_sql(query, conn)
         logging.info(f"Data fetched from table {table_name} successfully.")
         return df
     except Exception as e:
         logging.error(f"Error fetching data from table {table_name}: {e}")
+        return pd.DataFrame()
+
+def fetch_realtime_data(symbol, exchange='bybit'):
+    """Fetch real-time data for a given symbol from Bybit using CCXT."""
+    try:
+        exchange = getattr(ccxt, exchange)()
+        ticker = exchange.fetch_ticker(symbol)
+        data = {
+            'Date': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
+            'Symbol': [symbol],
+            'Open': [ticker['open']],
+            'High': [ticker['high']],
+            'Low': [ticker['low']],
+            'Close': [ticker['close']],
+            'Volume': [ticker['baseVolume']]
+        }
+        df = pd.DataFrame(data)
+        logging.info(f"Real-time data for {symbol} fetched successfully.")
+        return df
+    except Exception as e:
+        logging.error(f"Error fetching real-time data for {symbol}: {e}")
         return pd.DataFrame()
 
 def close_db_connection(conn):
@@ -45,23 +68,20 @@ def close_db_connection(conn):
 if __name__ == "__main__":
     DB_FILE = 'trading_bot.db'
     TABLE_NAME = 'historical_data'
+    SYMBOL = 'BTC/USDT'  # Example for Bitcoin against USDT
     
     # Create a database connection
     conn = create_db_connection(DB_FILE)
     
     if conn:
-        # Example DataFrame
-        data = {
-            'Date': ['2023-01-01', '2023-01-02', '2023-01-03'],
-            'Open': [100, 105, 102],
-            'Close': [105, 102, 108]
-        }
-        df = pd.DataFrame(data)
+        # Fetch real-time data from Bybit
+        realtime_data = fetch_realtime_data(SYMBOL)
         
-        # Store data to the database
-        store_data_to_db(conn, df, TABLE_NAME)
+        if not realtime_data.empty:
+            # Store real-time data to the database
+            store_data_to_db(conn, realtime_data, TABLE_NAME)
         
-        # Fetch data from the database
+        # Fetch and display the most recent data from the database
         historical_data = fetch_historical_data(conn, TABLE_NAME)
         print(historical_data)
         

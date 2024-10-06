@@ -1,4 +1,5 @@
 import logging
+from pyexpat import model
 import pandas as pd
 import ccxt
 import numpy as np

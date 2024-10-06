@@ -1,11 +1,17 @@
 import os
+import sys
 import time
 from dotenv import load_dotenv
-from exchanges import initialize_exchange
+
+# Add the root directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import using absolute imports
+from exchanges.exchanges import initialize_exchange  # Ensure you use the correct module path
 from trading.tradingbot import TradingBot
 
 # Load environment variables from .env file
-load_dotenv(dotenv_path='C:/Users/amrita/Desktop/improvised-code-of-the-pdf-GPT-main/API.env')
+load_dotenv(dotenv_path='F:/trading/improvised-code-of-the-pdf-GPT-main/API.env')
 
 def main():
     # Retrieve API credentials from environment variables

@@ -11,7 +11,10 @@ def synchronize_system_time(retries=3):
     Returns the time offset in milliseconds.
     """
     ntp_servers = ['pool.ntp.org', 'time.google.com', 'time.windows.com']
+    logging.info("Starting system time synchronization...")  # Added log for starting
+
     for attempt in range(retries):
+        logging.info(f"Attempt {attempt + 1} of {retries}.")  # Log for current attempt
         for server in ntp_servers:
             try:
                 response = ntplib.NTPClient().request(server, timeout=5)
@@ -22,5 +25,11 @@ def synchronize_system_time(retries=3):
                 return offset
             except Exception as e:
                 logging.warning(f"Attempt {attempt + 1} failed for server {server}: {e}")
+                
     logging.error("All attempts to synchronize time failed")
     return 0  # Return zero offset if synchronization fails
+
+if __name__ == "__main__":
+    # Call the function and log the result
+    offset = synchronize_system_time()
+    logging.info(f"Time offset: {offset} ms")
