@@ -5,6 +5,15 @@
         "./exchanges",
         "./exchanges",
         "./trading",
-        "./trading"
+        "./trading",
+        "./data/fetch_da",
+        "./data/fetch_da",
+        "./strategies",
+        "./data/fetch_da",
+        "./data/fetch_da",
+        "./data/fetch_da",
+        "./data/fetch_da",
+        "./data/fetch_da",
+        "./data/fetch_da"
     ]
 }
