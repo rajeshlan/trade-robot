@@ -1,10 +1,18 @@
+import pickle
 import time
 import ccxt
+import numpy as np
 import pandas as pd
 import pandas_ta as ta
 import logging
 import os
+import requests
+from textblob import TextBlob
 from fetch_data import fetch_ohlcv
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from sklearn.preprocessing import MinMaxScaler
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,6 +28,61 @@ def synchronize_time_with_exchange(exchange):
     except ccxt.BaseError as sync_error:
         logging.error("Failed to synchronize time with exchange: %s", sync_error)
         raise sync_error
+
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from sklearn.preprocessing import MinMaxScaler
+
+def preprocess_data_for_lstm(df):
+    # Scale the data
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(df[['close', 'SMA_20', 'SMA_50', 'RSI_14']].values)
+
+    # Prepare the dataset for LSTM
+    X = []
+    y = []
+    look_back = 60
+    for i in range(look_back, len(scaled_data)):
+        X.append(scaled_data[i-look_back:i])
+        y.append(scaled_data[i, 0])  # Predicting 'close' price
+
+    X, y = np.array(X), np.array(y)
+    return X, y, scaler
+
+def build_lstm_model(input_shape):
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(input_shape[1], input_shape[2])))
+    model.add(LSTM(units=50))
+    model.add(Dense(units=1))
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+def train_lstm_model(df):
+    X, y, scaler = preprocess_data_for_lstm(df)
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = build_lstm_model(X_train.shape)
+    
+    model.fit(X_train, y_train, epochs=10, batch_size=64, verbose=1)
+    
+    # Save model and scaler for future use
+    model.save("lstm_model.h5")
+    with open("scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
+    
+    logging.info("LSTM model trained and saved.")
+    return model, scaler
+
+def predict_with_lstm(df, model, scaler):
+    # Use the model to predict future prices or signals
+    X, _, _ = preprocess_data_for_lstm(df)
+    predictions = model.predict(X)
+    
+    # Inverse scaling
+    predicted_prices = scaler.inverse_transform(predictions)
+    return predicted_prices
+
 
 def fetch_data(exchange, symbol='BTCUSDT', timeframe='1h', limit=100):
     """Fetch historical OHLCV data from the exchange."""
@@ -67,11 +130,17 @@ def fetch_multiple_timeframes(exchange, symbol, timeframes):
     combined_df = pd.concat(df_list)
     return combined_df
 
-def detect_signals(df, sma_short=20, sma_long=50, rsi_overbought=70, rsi_oversold=30):
-    """Detect trading signals based on technical indicators."""
+def detect_signals(df, model=None, scaler=None, sma_short=20, sma_long=50, rsi_overbought=70, rsi_oversold=30):
+    """Detect trading signals using LSTM predictions, sentiment analysis, technical indicators, and volume."""
     try:
         latest = df.iloc[-1]
         previous = df.iloc[-2]
+
+        # Ensure LSTM predictions are used if the model and scaler are provided
+        lstm_predictions = predict_with_lstm(df, model, scaler) if model and scaler else None
+
+        # Sentiment Analysis
+        sentiment_score = fetch_market_sentiment_data()
 
         # Check if required columns are available
         if f'SMA_{sma_short}' not in df.columns or f'SMA_{sma_long}' not in df.columns:
@@ -79,14 +148,9 @@ def detect_signals(df, sma_short=20, sma_long=50, rsi_overbought=70, rsi_oversol
         if 'RSI_14' not in df.columns:
             raise ValueError("RSI column is not present in the DataFrame")
 
-        if latest['volume'] > latest['Volume_MA_20']:
-            logging.info("High volume detected")
-            # Additional logic based on high volume
-            return 'hold'
-
         # Fill NaN values with previous values
         df.fillna(method='ffill', inplace=True)
-        
+
         # Debug prints for indicators
         print(f"Latest SMA_{sma_short}: {latest[f'SMA_{sma_short}']}, SMA_{sma_long}: {latest[f'SMA_{sma_long}']}, RSI_14: {latest['RSI_14']}")
         print(f"Previous SMA_{sma_short}: {previous[f'SMA_{sma_short}']}, SMA_{sma_long}: {previous[f'SMA_{sma_long}']}, RSI_14: {previous['RSI_14']}")
@@ -98,7 +162,7 @@ def detect_signals(df, sma_short=20, sma_long=50, rsi_overbought=70, rsi_oversol
         elif previous[f'SMA_{sma_short}'] > previous[f'SMA_{sma_long}'] and latest[f'SMA_{sma_short}'] < latest[f'SMA_{sma_long}']:
             print("Sell signal detected based on SMA crossover")
             return 'sell'
-        
+
         # Relative Strength Index (RSI)
         if latest['RSI_14'] > rsi_overbought:
             print("Sell signal detected based on RSI overbought")
@@ -107,21 +171,44 @@ def detect_signals(df, sma_short=20, sma_long=50, rsi_overbought=70, rsi_oversol
             print("Buy signal detected based on RSI oversold")
             return 'buy'
 
-        sentiment_score = analyze_market_sentiment()
+        # Volume-based analysis
+        if latest['volume'] > latest['Volume_MA_20']:
+            logging.info("High volume detected")
+            return 'hold'
+
+        # Combine LSTM prediction, sentiment, and technical analysis
+        if lstm_predictions and sentiment_score > 0.5 and lstm_predictions[-1] > latest['close'] and latest[f'SMA_{sma_short}'] > latest[f'SMA_{sma_long}']:
+            logging.info("LSTM predicts price increase with positive sentiment, buy signal")
+            return 'buy'
+        elif lstm_predictions and sentiment_score < -0.5 and lstm_predictions[-1] < latest['close'] and latest[f'SMA_{sma_short}'] < latest[f'SMA_{sma_long}']:
+            logging.info("LSTM predicts price decrease with negative sentiment, sell signal")
+            return 'sell'
+
+        # Sentiment-only signals
         if sentiment_score > 0.5:
             logging.info("Positive market sentiment detected")
-            # Adjust signals based on sentiment
             if latest[f'SMA_{sma_short}'] > latest[f'SMA_{sma_long}'] and latest['RSI_14'] < rsi_overbought:
                 return 'buy'
         elif sentiment_score < -0.5:
             logging.info("Negative market sentiment detected")
-            # Adjust signals based on sentiment
             if latest[f'SMA_{sma_short}'] < latest[f'SMA_{sma_long}'] and latest['RSI_14'] > rsi_oversold:
                 return 'sell'
+
         return 'hold'
     except Exception as e:
         logging.error("Error detecting signals: %s", e)
         raise e
+
+def adaptive_risk_management(df, risk_tolerance=2):
+    # Dynamically adjust stop loss and take profit based on volatility or other factors
+    current_atr = df.iloc[-1]['ATR_14']  # Average True Range as a volatility measure
+    stop_loss_pct = risk_tolerance * current_atr
+    take_profit_pct = risk_tolerance * current_atr * 1.5  # A simple ratio
+    
+    logging.info(f"Adaptive Stop Loss: {stop_loss_pct:.2f}, Take Profit: {take_profit_pct:.2f}")
+    return stop_loss_pct, take_profit_pct
+
+
 
 def fetch_real_time_balance(exchange, currency='USDT'):
     """Fetch real-time balance from the exchange."""
@@ -141,10 +228,19 @@ def analyze_market_sentiment():
     return sentiment_score
 
 def fetch_market_sentiment_data():
-    # Example function to fetch market sentiment data
-    # In a real scenario, this could involve scraping news articles, social media, etc.
-    sentiment_score = 0.7  # Positive sentiment score as an example
-    return sentiment_score
+    # Example: Fetch news or social media data from an external API
+    # Let's assume we fetch some tweets or news headlines about the cryptocurrency market
+    try:
+        response = requests.get('https://newsapi.org/v2/everything?q=cryptocurrency&apiKey=YOUR_NEWS_API_KEY')
+        data = response.json()
+        headlines = [article['title'] for article in data['articles']]
+        
+        # Sentiment analysis
+        sentiment_score = sum([TextBlob(headline).sentiment.polarity for headline in headlines]) / len(headlines)
+        return sentiment_score
+    except Exception as e:
+        logging.error("Error fetching market sentiment data: %s", e)
+        return 0
 
 def backtest_strategy(df, initial_capital=1000, position_size=1, transaction_cost=0.001, stop_loss_pct=0.02, take_profit_pct=0.05):
     try:
@@ -217,7 +313,7 @@ def perform_backtesting(exchange):
         logging.error("Error during backtesting: %s", e)
 
 def main():
-    """Main function to run backtesting."""
+    """Main function to run the enhanced backtesting with adaptive risk management."""
     try:
         # Initialize the exchange
         api_key = os.getenv('BYBIT_API_KEY')
@@ -237,8 +333,12 @@ def main():
         # Calculate indicators
         df = calculate_indicators(df)
         
-        # Run backtest
-        backtest_df, final_capital = backtest_strategy(df, initial_capital=real_time_balance)
+        # Train or load LSTM model
+        model, scaler = train_lstm_model(df)
+        
+        # Run backtest with adaptive risk management
+        stop_loss_pct, take_profit_pct = adaptive_risk_management(df)
+        backtest_df, final_capital = backtest_strategy(df, initial_capital=real_time_balance, stop_loss_pct=stop_loss_pct, take_profit_pct=take_profit_pct)
         
         # Output results
         print(backtest_df.tail())
@@ -248,3 +348,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

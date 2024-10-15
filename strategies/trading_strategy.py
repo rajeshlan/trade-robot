@@ -31,6 +31,9 @@ from fetch_data import main
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    handlers=[logging.FileHandler("trading_bot.log"), logging.StreamHandler()])
 
 # Environment variables for API credentials
 API_KEY = os.getenv('BYBIT_API_KEY')
@@ -424,6 +427,28 @@ def execute_trade():
             logging.info("Sentiment score neutral, no action taken.")
     else:
         logging.error("Failed to fetch sentiment data.")
+
+def _update_balance_and_position(self, action, current_price):
+    if action == 1 and self.position == 'short':
+        self.balance += self.position_size * (self.entry_price - current_price)
+        self.position = None
+    elif action == 2 and self.position == 'long':
+        self.balance += self.position_size * (current_price - self.entry_price)
+        self.position = None
+
+def step(self, action):
+    self.current_step += 1
+    if self.current_step >= len(self.df) - 1:
+        self.done = True
+
+    current_price = self.df.iloc[self.current_step]['Close']
+    reward = self._take_action(action, current_price)
+    self._update_balance_and_position(action, current_price)
+    
+    obs = self._next_observation()
+    return obs, reward, self.done, {}
+
+
     
 if __name__ == "__main__":
     main()

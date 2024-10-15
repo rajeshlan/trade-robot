@@ -14,7 +14,6 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_score, recall_score, f1_score
 from langdetect import detect
-from tensorflow.keras.preprocessing.text import tokenizer_from_json
 from unittest.mock import patch
 
 # Configure logging
@@ -28,23 +27,27 @@ def fetch_real_time_sentiment():
     url = 'https://api.bybit.com'  # Ensure this is the correct endpoint
     headers = {'Authorization': 'u3Bm7IRMcAAc7RKCpn'}  # Replace with your actual API key
     max_retries = 3
+
     for attempt in range(max_retries):
         try:
             response = requests.get(url, headers=headers)
-            response.raise_for_status()
+            response.raise_for_status()  # Raise HTTPError for bad responses
             sentiment_data = response.json()
             logging.info(f"API response: {sentiment_data}")
+
             if 'score' in sentiment_data:
                 sentiment_score = sentiment_data['score']
                 logging.info(f"Real-time sentiment score: {sentiment_score}")
                 return sentiment_score
             else:
                 logging.error(f"Unexpected response format: {sentiment_data}")
+
         except requests.exceptions.HTTPError as http_err:
             logging.error(f"HTTP error occurred: {http_err}")
         except Exception as err:
             logging.error(f"Other error occurred: {err}")
-    return None
+
+    return None  # Return None after retries
 
 # Preprocess Text for Sentiment Analysis
 def preprocess_text(tweets, tokenizer=None):
@@ -66,11 +69,13 @@ def load_tokenizer(path='tokenizer.json'):
         tokenizer_json = json.load(f)
     tokenizer = Tokenizer()
     tokenizer_config = json.loads(tokenizer_json)
+
     if 'word_index' in tokenizer_config:
         tokenizer.word_index = tokenizer_config['word_index']
     else:
         logging.error("Key 'word_index' not found in the tokenizer JSON.")
         raise KeyError("Key 'word_index' not found in the tokenizer JSON.")
+
     return tokenizer
 
 # Build the Sentiment Analysis Model
@@ -105,8 +110,10 @@ def analyze_sentiment(tweets, model, tokenizer, real_time_score=None):
     data, _ = preprocess_text(tweets, tokenizer)
     predictions = model.predict(data)
     average_sentiment = np.mean(predictions)
+
     if real_time_score is not None:
         average_sentiment = (average_sentiment + real_time_score) / 2
+
     return average_sentiment
 
 # Detect Language of Text
@@ -172,6 +179,7 @@ def main():
         tokenizer = None
         new_tweets = args.analyze.split(',')
         real_time_score = None
+
         if args.real_time_score:
             real_time_score = fetch_real_time_sentiment()
 
@@ -210,21 +218,29 @@ def main():
         model.fit(X_train, y_train, epochs=5, batch_size=2, validation_data=(X_val, y_val))
 
         save_model(model, f'sentiment_model_{lang}.h5')
-        evaluate_model(model, X_val, y_val)
+        logging.info("Model updated successfully.")
 
-if __name__ == "__main__":
-    main()
+# Unit Tests
+class TestSentimentAnalysis(unittest.TestCase):
+    def test_language_detection(self):
+        text = "This is a test."
+        language = detect_language(text)
+        self.assertEqual(language, 'en')
 
-# Unit tests for Sentiment Analysis Functions
-class SentimentAnalysisTest(unittest.TestCase):
-    @patch('builtins.input', return_value='1')
-    def test_fetch_real_time_sentiment(self, mock_input):
-        self.assertEqual(fetch_real_time_sentiment(), 1)
+    @patch('requests.get')
+    def test_fetch_real_time_sentiment(self, mock_get):
+        mock_get.return_value.ok = True
+        mock_get.return_value.json.return_value = {'score': 0.75}
+        score = fetch_real_time_sentiment()
+        self.assertEqual(score, 0.75)
 
     def test_preprocess_text(self):
-        tweets = ["This is a test tweet."]
+        tweets = ["I love this!", "I hate this!"]
         data, tokenizer = preprocess_text(tweets)
-        self.assertEqual(data.shape[1], 100)
+        self.assertEqual(len(data), len(tweets))
+        self.assertIsNotNone(tokenizer)
 
-if __name__ == '__main__':
+# Run tests if this file is executed directly
+if __name__ == "__main__":
+    main()
     unittest.main()

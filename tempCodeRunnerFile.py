@@ -5,6 +5,7 @@ import os
 import time
 import ntplib
 import ta
+import joblib
 import pandas_ta as ta  # Correct import for pandas_ta
 from datetime import datetime
 
@@ -125,6 +126,33 @@ def execute_trade(exchange, symbol, signal, available_usd, btc_price):
     except ccxt.BaseError as e:
         logging.error(f"Error executing {signal} order: {e}")
         raise e
+    
+def load_trained_model(model_path):
+    """
+    Load pre-trained ML model for price prediction or trade decision-making.
+    """
+    try:
+        model = joblib.load(model_path)
+        logging.info("Loaded trained model successfully")
+        return model
+    except Exception as e:
+        logging.error("Error loading model: %s", e)
+        raise e
+
+def predict_signal(model, df):
+    """
+    Use the pre-trained model to predict the next signal (buy/sell/hold).
+    """
+    try:
+        features = df[['SMA_50', 'SMA_200', 'EMA_12', 'EMA_26', 'RSI', 'MACD', 'MACD_signal']].values
+        predictions = model.predict(features)
+        df['predicted_signal'] = predictions
+        logging.info("Predicted trading signals using AI/ML model")
+    except Exception as e:
+        logging.error("Error predicting signals: %s", e)
+        raise e
+    return df
+
 
 def main():
     try:

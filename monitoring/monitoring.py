@@ -4,6 +4,8 @@ import logging
 import smtplib
 import pandas as pd
 import requests
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,6 +40,53 @@ def track_performance_metrics(df):
         send_notification("10-period moving average crossed above 50-period moving average.")
     elif moving_average_10.iloc[-1] < moving_average_50.iloc[-1]:
         send_notification("10-period moving average crossed below 50-period moving average.")
+
+    # Predict future prices
+    predict_future_prices(df['close'], periods=5)
+
+def predict_future_prices(close_prices, periods):
+    """
+    Predict future closing prices using linear regression and determine trend duration.
+    
+    Parameters:
+    - close_prices (pd.Series): Series of closing prices.
+    - periods (int): Number of future periods to predict.
+    """
+    # Prepare data for linear regression
+    X = np.arange(len(close_prices)).reshape(-1, 1)
+    y = close_prices.values.reshape(-1, 1)
+
+    # Fit linear regression model
+    model = LinearRegression()
+    model.fit(X, y)
+
+    # Predict future prices
+    future_X = np.arange(len(close_prices), len(close_prices) + periods).reshape(-1, 1)
+    predicted_prices = model.predict(future_X)
+
+    # Calculate trend direction
+    trend_direction = "unknown"
+    if predicted_prices[-1] > predicted_prices[0]:
+        trend_direction = "upward"
+    elif predicted_prices[-1] < predicted_prices[0]:
+        trend_direction = "downward"
+
+    # Calculate mean predicted price
+    predicted_mean = np.mean(predicted_prices)
+    
+    logging.info(f"Predicted Mean Closing Price: {predicted_mean:.2f}")
+    logging.info(f"Predicted price indicates a {trend_direction} trend.")
+
+    # Log detailed predictions
+    logging.info("Predicted future prices:")
+    for idx, price in enumerate(predicted_prices):
+        logging.info(f"Period {idx + 1}: {price[0]:.2f}")
+
+    # Optionally, you can send notifications based on the trend direction
+    if trend_direction == "upward":
+        send_notification("Predicted trend is upward.")
+    elif trend_direction == "downward":
+        send_notification("Predicted trend is downward.")
 
 def send_notification(message):
     """

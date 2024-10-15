@@ -14,6 +14,10 @@ from database import create_db_connection, store_data_to_db, fetch_historical_da
 from sentiment_analysis import fetch_real_time_sentiment
 #from technical_indicators import calculate_sma, calculate_rsi, calculate_macd, calculate_bollinger_bands, calculate_atr
 from config import API_KEY, API_SECRET, DB_FILE, TRAILING_STOP_PERCENT, RISK_REWARD_RATIO
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
 
 # Logging Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -120,6 +124,30 @@ class TradingBot:
 
     def calculate_atr(self, high, low, close, length=14):
         return ta.atr(high, low, close, length=length)
+    
+    
+        # Create features and labels for machine learning
+    def create_features_labels(self, df):
+        df['Target'] = df['Buy_Signal'].shift(-1)  # Shift buy signals to predict the next row
+        features = df[['close', 'SMA_20', 'SMA_50', 'SMA_200', 'RSI', 'MACD', 'MACD_signal']].dropna()
+        labels = df['Target'].dropna()
+        return features, labels
+
+    # Train machine learning model
+    def train_model(self, features, labels):
+        X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X_train, y_train)
+        predictions = model.predict(X_test)
+        accuracy = accuracy_score(y_test, predictions)
+        logging.info(f"Model trained with accuracy: {accuracy:.2f}")
+        return model
+
+    # Make predictions
+    def predict_signals(self, model, latest_data):
+        prediction = model.predict(latest_data)
+        return prediction
+
 
     # Detect Trading Signals
     def detect_signals(self, df):
@@ -225,10 +253,24 @@ class TradingBot:
             bot.initialize_exchange()
             historical_data = bot.fetch_data(symbol='BTCUSDT', timeframe='1d', limit=365)
 
-            # Calculate indicators, generate signals, and simulate trading
+            # Calculate indicators and generate signals
             df_with_indicators = bot.calculate_indicators(historical_data)
             signals_df = bot.detect_signals(df_with_indicators)
-            bot.simulate_trading(signals_df)
+
+            # Create features and labels for ML
+            features, labels = bot.create_features_labels(signals_df)
+
+            # Train ML model
+            model = bot.train_model(features, labels)
+
+            # Use the model to predict the next signals
+            latest_data = features.tail(1)  # Get the latest data for prediction
+            predicted_signal = bot.predict_signals(model, latest_data)
+            logging.info(f"Predicted next signal: {predicted_signal}")
+
+            # Simulate trading based on the predicted signal
+            if predicted_signal[0] == 1:
+                bot.simulate_trading(signals_df)  # Use your existing logic to simulate trading
 
             logging.info("Trading bot executed successfully.")
         except ccxt.AuthenticationError as e:
@@ -239,6 +281,7 @@ class TradingBot:
             logging.error("Exchange error: %s. Please check the exchange status or API documentation.", e)
         except Exception as e:
             logging.error("An unexpected error occurred: %s", e)
+
 
 if __name__ == "__main__":
     TradingBot.main()

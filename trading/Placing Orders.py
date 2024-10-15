@@ -55,28 +55,42 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         logging.error("Failed to calculate technical indicators: %s", e)
         raise
 
-def define_trading_strategy(df: pd.DataFrame) -> pd.DataFrame:
+from price_prediction import train_lstm, predict_price
+
+def define_trading_strategy(df: pd.DataFrame, model, scaler) -> pd.DataFrame:
     """
-    Define the trading strategy based on technical indicators.
+    Define the trading strategy based on technical indicators and predicted price.
     """
     try:
         signals = ['hold']
+        predicted_prices = []
+
+        # Iterate through the dataframe
         for i in range(1, len(df)):
-            if df['SMA_10'][i] > df['SMA_30'][i] and df['SMA_10'][i-1] <= df['SMA_30'][i-1]:
-                signals.append('buy')
-            elif df['SMA_10'][i] < df['SMA_30'][i] and df['SMA_10'][i-1] >= df['SMA_30'][i-1]:
-                signals.append('sell')
+            # Predict future price
+            if i > 60:  # Ensuring we have enough data points
+                predicted_price = predict_price(df.iloc[:i], model, scaler)
+                predicted_prices.append(predicted_price)
+
+                # Update signal logic with predicted price
+                if df['SMA_10'][i] > df['SMA_30'][i] and predicted_price > df['close'][i]:
+                    signals.append('buy')
+                elif df['SMA_10'][i] < df['SMA_30'][i] and predicted_price < df['close'][i]:
+                    signals.append('sell')
+                else:
+                    signals.append('hold')
             else:
                 signals.append('hold')
+
         df['signal'] = signals
-        logging.info("Applied trading strategy")
-        
-        # Log the first few signals for debugging
-        logging.info("First few signals: %s", df['signal'].head(10).tolist())
+        df['predicted_price'] = predicted_prices + [None] * (len(df) - len(predicted_prices))
+
+        logging.info("Applied trading strategy with price prediction")
         return df
     except Exception as e:
         logging.error("Failed to define trading strategy: %s", e)
         raise
+
 
 def place_order(exchange: ccxt.Exchange, symbol: str, order_type: str, side: str, amount: float, price=None):
     """
@@ -213,11 +227,14 @@ def main():
         # Fetch historical data
         df = fetch_ohlcv(exchange, symbol)
         
+        # Train LSTM model on historical data
+        model, scaler = train_lstm(df)
+        
         # Calculate technical indicators
         df = calculate_technical_indicators(df)
         
         # Define trading strategy
-        df = define_trading_strategy(df)
+        df = define_trading_strategy(df, model, scaler)
         
         # Execute trading strategy
         execute_trading_strategy(exchange, df, symbol, amount, risk_percent)
@@ -228,6 +245,7 @@ def main():
         logging.error("An error occurred: %s", e)
     except ValueError as e:
         logging.error("Value error occurred: %s", e)
+
 
 if __name__ == "__main__":
     main()

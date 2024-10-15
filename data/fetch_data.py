@@ -153,8 +153,6 @@ def detect_signals(df: pd.DataFrame, sma_lengths: Tuple[int, int]) -> None:
             elif previous['MACD'] > previous['MACD_signal'] and latest['MACD'] < latest['MACD_signal']:
                 logging.info("Bearish MACD crossover detected")
                 
-        
-        
     except Exception as e:
         logging.error("An error occurred during signal detection: %s", e)
         raise e
@@ -199,71 +197,66 @@ def fetch_real_time_data(exchange: ccxt.Exchange, symbol: str, timeframe: str = 
             new_df = perform_technical_analysis(new_df)
             
             # Print or process new data as needed
-            print(new_df.tail())  # Example: print last few rows of new data
+            print(new_df)
             
-            # Sleep for a minute (or desired interval)
-            time.sleep(60)  # Sleep for 60 seconds (1 minute)
-            
-    except ccxt.NetworkError as net_error:
-        logging.error("A network error occurred: %s", net_error)
-        # Retry or handle the error as needed
-    except ccxt.ExchangeError as exchange_error:
-        logging.error("An exchange error occurred: %s", exchange_error)
-        # Handle the exchange-specific error
-    except Exception as error:
-        logging.error("An unexpected error occurred: %s", error)
-        # Handle any other unexpected errors
+            # Sleep for a defined period before fetching new data
+            time.sleep(60)  # Adjust sleep duration as needed
+    except Exception as e:
+        logging.error(f"Error fetching real-time data: {e}")
 
-def fetch_data(self, symbol, timeframe='1h', limit=100):
-    try:
-        ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        logging.info(f"Fetched real-time OHLCV data for {symbol}")
-        return df
-    except ccxt.BaseError as e:
-        logging.error("Error fetching real-time OHLCV data: %s", e)
-        raise e
+# Define the FetchData class
 
-def main():
-    try:
-        # Retrieve API keys and secrets from environment variables
-        api_key = os.getenv('BYBIT_API_KEY')
-        api_secret = os.getenv('BYBIT_API_SECRET')
+class FetchData:
+    def __init__(self, api_key: str, api_secret: str, query: str, symbol: str, timeframe: str = '1m'):
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.query = query
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.exchange = ccxt.binance()  # Initialize your exchange here
+        
+    def get_tweets(self):
+        """
+        Fetch tweets based on the specified query.
+        """
+        try:
+            auth = tweepy.AppAuthHandler(self.api_key, self.api_secret)
+            api = tweepy.API(auth)
+            tweets = api.search(q=self.query, count=100, lang='en')
+            return [tweet.text for tweet in tweets]
+        except Exception as e:
+            logging.error(f"Error fetching tweets: {e}")
+            return []
 
-        if not api_key or not api_secret:
-            raise ValueError("BYBIT_API_KEY or BYBIT_API_SECRET environment variables are not set.")
+    def analyze_sentiment(self, text):
+        """
+        Analyze sentiment of the provided text using TextBlob.
+        """
+        blob = TextBlob(text)
+        return blob.sentiment
 
-        # Initialize the Bybit exchange
-        exchange = ccxt.bybit({
-            'apiKey': api_key,
-            'secret': api_secret,
-            'enableRateLimit': True,  # This helps to avoid rate limit errors
-        })
+    def fetch_and_analyze_data(self):
+        """
+        Fetch real-time data and analyze sentiment.
+        """
+        while True:
+            try:
+                # Fetch real-time OHLCV data
+                ohlcv = fetch_ohlcv(self.exchange, self.symbol, self.timeframe)
+                logging.info(f"Fetched {len(ohlcv)} data points for {self.symbol}")
 
-        # Start fetching real-time data
-        symbol = 'BTCUSDT'
-        fetch_real_time_data(exchange, symbol)
+                # Perform sentiment analysis on the fetched tweets
+                tweets = self.get_tweets()
+                for tweet in tweets:
+                    sentiment = self.analyze_sentiment(tweet)
+                    logging.info(f"Tweet: {tweet}, Sentiment: {sentiment}")
 
-    except ccxt.NetworkError as net_error:
-        logging.error("A network error occurred: %s", net_error)
-        # Retry or handle the error as needed
-    except ccxt.ExchangeError as exchange_error:
-        logging.error("An exchange error occurred: %s", exchange_error)
-        # Handle the exchange-specific error
-    except ValueError as value_error:
-        logging.error("Value error occurred: %s", value_error)
-        # Handle missing environment variables or other value-related errors
-    except Exception as error:
-        logging.error("An unexpected error occurred: %s", error)
-        # Handle any other unexpected errors
+                # Sleep for a defined period before fetching new data
+                time.sleep(60)  # Adjust sleep duration as needed
+            except Exception as e:
+                logging.error(f"Error in fetch_and_analyze_data: {e}")
 
-# tradingbot/fetch_data.py
-
-def fetch_historical_data(exchange, symbol, timeframe='1h', limit=100, params=None):
-    return exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit, params=params)
-
-
+# Usage example
 if __name__ == "__main__":
-    main()
-
+    fetch_data = FetchData(api_key='your_api_key', api_secret='your_api_secret', query='Bitcoin', symbol='BTC/USDT')
+    fetch_data.fetch_and_analyze_data()

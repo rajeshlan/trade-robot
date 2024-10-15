@@ -4,6 +4,9 @@ import ccxt
 import pandas as pd
 from tradingbot import TradingBot
 import ntplib
+from keras.models import Sequential
+from keras.layers import LSTM, Dense
+import numpy as np
 
 class TestTradingFunctions(unittest.TestCase):
 
@@ -127,6 +130,20 @@ class TestTradingFunctions(unittest.TestCase):
         self.assertIn('MACD', df.columns)
         self.assertIn('RSI', df.columns)
 
+    def create_lstm_model(self, input_shape):
+        model = Sequential()
+        model.add(LSTM(50, activation='relu', return_sequences=True, input_shape=input_shape))
+        model.add(LSTM(50, activation='relu'))
+        model.add(Dense(1))  # Predicting the next price
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        return model
+
+    # Function to train the model
+    def train_model(self, data):
+        X, y = self.preprocess_data(data)  # Your data preprocessing function
+        model = self.create_lstm_model((X.shape[1], X.shape[2]))
+        model.fit(X, y, epochs=50, batch_size=32)
+        return model
 
 if __name__ == '__main__':
     unittest.main()
