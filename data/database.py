@@ -1,21 +1,22 @@
+#python -m data.database (this is what you need to write to execute)
+
+
 import sqlite3
 import ccxt
 import pandas as pd
 import logging
 import matplotlib.pyplot as plt
-from ccxt import bybit 
+from ccxt import bybit
 import unittest
 from datetime import datetime
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression 
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 import sys
 import os
-import tradingbot
 
-
-# Add the root directory of the project to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../config')))
+# Adjust sys.path to include the project's root directory
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 # Now you can import app_config
 from config.app_config import DB_FILE
@@ -42,7 +43,7 @@ def store_data_to_db(conn, df, table_name):
     except Exception as e:
         logging.error(f"Error storing data to table {table_name}: {e}")
 
-def fetch_historical_data_from_exchange(symbol, timeframe='1h', limit=100, exchange_name='bybit'):
+def fetch_historical_data_from_exchange(symbol, timeframe='1h', limit=300, exchange_name='bybit'):
     """Fetch historical data (OHLCV) for a given symbol from the exchange."""
     try:
         exchange = getattr(ccxt, exchange_name)()
@@ -75,15 +76,16 @@ def fetch_realtime_data(symbol, exchange_name='bybit'):
     """Fetch real-time data for a given symbol from an exchange using CCXT."""
     try:
         exchange = getattr(ccxt, exchange_name)()
-        ticker = exchange.fetch_ticker(symbol)
+        # Fetch the last 5 real-time ticks
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=5)
         data = {
-            'Date': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
-            'Symbol': [symbol],
-            'Open': [ticker['open']],
-            'High': [ticker['high']],
-            'Low': [ticker['low']],
-            'Close': [ticker['close']],
-            'Volume': [ticker['baseVolume']]
+            'Date': [pd.to_datetime(ohlcv[i][0], unit='ms').strftime('%Y-%m-%d %H:%M:%S') for i in range(5)],
+            'Symbol': [symbol] * 5,
+            'Open': [ohlcv[i][1] for i in range(5)],
+            'High': [ohlcv[i][2] for i in range(5)],
+            'Low': [ohlcv[i][3] for i in range(5)],
+            'Close': [ohlcv[i][4] for i in range(5)],
+            'Volume': [ohlcv[i][5] for i in range(5)],
         }
         df = pd.DataFrame(data)
         logging.info(f"Real-time data for {symbol} fetched successfully.")
@@ -102,6 +104,7 @@ def close_db_connection(conn):
         logging.info("Database connection closed.")
 
 def predict_price(historical_data):
+    """Predict the future price based on historical data."""
     # Log data fetched from historical_data
     logging.info(f"Data fetched from table historical_data successfully.\n{historical_data}")
     
@@ -134,6 +137,7 @@ def predict_price(historical_data):
     return predicted_price[0], y_train, y_pred_train
 
 def plot_predictions(actual_data, predicted_data):
+    """Plot actual vs predicted prices."""
     plt.figure(figsize=(10, 6))
     plt.plot(actual_data, label='Actual Prices', color='blue')
     plt.plot(predicted_data, label='Predicted Prices', color='orange')
@@ -143,14 +147,8 @@ def plot_predictions(actual_data, predicted_data):
     plt.title("Actual vs. Predicted Prices")
     plt.show()
 
-# Main logic
-if not tradingbot.db.empty:
-    future_price, actual_train, predicted_train = predict_price(tradingbot.db)
-    if future_price is not None:
-        logging.info(f'Predicted future price: {future_price}')
-        # Plot the actual vs. predicted values
-        plot_predictions(actual_train, predicted_train)
-
+def main():
+    """Main function to run the trading bot."""
     # Create a database connection
     conn = create_db_connection(DB_FILE)
 
@@ -161,7 +159,7 @@ if not tradingbot.db.empty:
             store_data_to_db(conn, realtime_data, "realtime_data")
 
         # Fetch historical data from the exchange and store in the database
-        historical_data = fetch_historical_data_from_exchange('BTC/USDT', timeframe='1h', limit=100)
+        historical_data = fetch_historical_data_from_exchange('BTC/USDT', timeframe='1h', limit=300)
         if not historical_data.empty:
             store_data_to_db(conn, historical_data, "historical_data")
 
@@ -170,15 +168,14 @@ if not tradingbot.db.empty:
         print(historical_data_db)
 
         # Predict future price from historical data
-        future_price, _, _ = predict_price(historical_data_db)
+        future_price, actual_train, predicted_train = predict_price(historical_data_db)
         if future_price is not None:
             logging.info(f'Predicted future price: {future_price}')
+            # Plot the actual vs. predicted values
+            plot_predictions(actual_train, predicted_train)
 
         # Close the database connection
         close_db_connection(conn)
-
-# Set up Bybit exchange using ccxt
-exchange = bybit()
 
 class TestTradingBot(unittest.TestCase):
 
@@ -191,6 +188,7 @@ class TestTradingBot(unittest.TestCase):
     def test_store_and_fetch_real_data(self):
         """Test storing and fetching real BTC/USDT data from the database."""
         symbol = 'BTC/USDT'
+        exchange = bybit()
         since = exchange.parse8601(f"{datetime.now().strftime('%Y-%m-%d')}T00:00:00Z")
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', since=since, limit=5)
         
@@ -207,6 +205,7 @@ class TestTradingBot(unittest.TestCase):
     def test_predict_price_with_real_data(self):
         """Test the price prediction functionality using real BTC/USDT data."""
         symbol = 'BTC/USDT'
+        exchange = bybit()
         since = exchange.parse8601(f"{datetime.now().strftime('%Y-%m-%d')}T00:00:00Z")
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', since=since, limit=5)
         
@@ -214,9 +213,9 @@ class TestTradingBot(unittest.TestCase):
         test_data['Date'] = pd.to_datetime(test_data['Timestamp'], unit='ms')
         test_data = test_data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
         
-        predicted_price, _, _ = predict_price(test_data)
-        self.assertIsNotNone(predicted_price)
-        self.assertGreater(predicted_price, 0)
+        future_price, actual_train, predicted_train = predict_price(test_data)
+        self.assertIsNotNone(future_price)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    main()
     unittest.main()

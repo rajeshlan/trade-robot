@@ -1,3 +1,5 @@
+#RUN ON DIFFECT SYSTEM AS YOUR PC HAS ISSUES
+
 from multiprocessing import Value
 import numpy as np
 from textblob import TextBlob
@@ -6,16 +8,25 @@ import os
 import ccxt
 import pandas as pd
 import pandas_ta as ta
+import pandas as pd
 import logging
 import time
+import ccxt
+import logging
+import pandas as pd
 from datetime import datetime
-from typing import Tuple
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from typing import Self, Tuple
+from dotenv import load_dotenv
+import os
+
+load_dotenv(dotenv_path='F:\\trading\\improvised-code-of-the-pdf-GPT-main\\config\\API.env')
+
+
+bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-import ccxt
-import logging
 
 def synchronize_time_with_exchange(exchange):
     try:
@@ -29,11 +40,7 @@ def synchronize_time_with_exchange(exchange):
         logging.error(f"Unexpected error: {str(e)}")
         return None
 
-
 # fetch_data.py
-
-import pandas as pd
-
 def get_historical_data(file_path):
     """
     Load historical data from a CSV file.
@@ -45,15 +52,15 @@ def get_historical_data(file_path):
         raise IOError(f"Error loading historical data from {file_path}: {e}")
 
 # Add any other functions like get_tweets, analyze_sentiment, etc.
-
-
-def get_tweets(api_key, api_secret, query):
-    auth = tweepy.AppAuthHandler(api_key, api_secret)
-    api = tweepy.API(auth)
-    tweets = api.search(q=query, count=100, lang='en')
-    return [tweet.text for tweet in tweets]
-
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+def get_tweets(bearer_token, query):
+    client = tweepy.Client(bearer_token=bearer_token)
+    try:
+        response = client.search_recent_tweets(query=query, max_results=100, tweet_fields=["lang"])
+        tweets = response.data
+        return [tweet.text for tweet in tweets if tweet.lang == 'en'] if tweets else []
+    except Exception as e:
+        logging.error(f"Error fetching tweets: {e}")
+        return []
 
 def analyze_sentiment(text):
     analyzer = SentimentIntensityAnalyzer()
@@ -61,17 +68,17 @@ def analyze_sentiment(text):
     logging.info(f"Sentiment analysis: {sentiment}")
     return sentiment
 
-
-import pandas as pd
-
 def fetch_ohlcv(exchange, symbol, timeframe='1m', limit=100):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         logging.info(f"Fetched {len(ohlcv)} data points for {symbol} on {timeframe} timeframe.")
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         return df
+    except ccxt.BaseError as e:
+        logging.error(f"Error fetching OHLCV data: {type(e).__name__} - {str(e)}")
+        return None
     except Exception as e:
-        logging.error(f"Error fetching OHLCV data: {str(e)}")
+        logging.error(f"Unexpected error fetching OHLCV data: {str(e)}")
         return None
 
 
@@ -117,7 +124,6 @@ def perform_technical_analysis(df: pd.DataFrame, sma_lengths: Tuple[int, int] = 
     except Exception as e:
         logging.error("An error occurred during technical analysis: %s", e)
         raise e
-
 
 def detect_signals(df: pd.DataFrame, sma_lengths: Tuple[int, int]) -> None:
     """
@@ -205,28 +211,64 @@ def fetch_real_time_data(exchange: ccxt.Exchange, symbol: str, timeframe: str = 
         logging.error(f"Error fetching real-time data: {e}")
 
 # Define the FetchData class
-
 class FetchData:
-    def __init__(self, api_key: str, api_secret: str, query: str, symbol: str, timeframe: str = '1m'):
+    def __init__(self, bearer_token: str, api_key: str, api_secret: str, query: str, symbol: str, timeframe: str = '1m'):
+        self.bearer_token = bearer_token
         self.api_key = api_key
         self.api_secret = api_secret
         self.query = query
         self.symbol = symbol
         self.timeframe = timeframe
-        self.exchange = ccxt.binance()  # Initialize your exchange here
         
+        # Properly initialize the Bybit exchange with authentication
+        self.exchange = ccxt.bybit({
+            'apiKey': self.api_key,
+            'secret': self.api_secret,
+            'enableRateLimit': True,
+            'options': {
+                'defaultType': 'future',  # Use 'spot' if not trading futures
+            }
+        })
+
+    def get_tweets(self):
+        """
+        Fetch tweets based on the specified query.
+        """
+        client = tweepy.Client(bearer_token=self.bearer_token)
+        try:
+            response = client.search_recent_tweets(query=self.query, max_results=100, tweet_fields=["lang"])
+            tweets = response.data
+            return [tweet.text for tweet in tweets if tweet.lang == 'en'] if tweets else []
+        except Exception as e:
+            logging.error(f"Error fetching tweets: {e}")
+            return []
+
+
+    
     def get_tweets(self):
         """
         Fetch tweets based on the specified query.
         """
         try:
-            auth = tweepy.AppAuthHandler(self.api_key, self.api_secret)
+            # Log that the function is attempting to use the bearer token
+            logging.info(f"Using bearer token: {self.bearer_token[:10]}...")  # Mask the token for security
+
+            # Initialize the OAuth2 handler with the bearer token
+            auth = tweepy.OAuth2BearerHandler(self.bearer_token)
             api = tweepy.API(auth)
-            tweets = api.search(q=self.query, count=100, lang='en')
+
+            # Fetch tweets (make sure the 'search_tweets' method parameters are valid)
+            tweets = api.search_tweets(q=self.query, count=100, lang='en')
+
+            # Return only the text content of the tweets
             return [tweet.text for tweet in tweets]
+
         except Exception as e:
+            # Log the error if fetching tweets fails
             logging.error(f"Error fetching tweets: {e}")
             return []
+
+
 
     def analyze_sentiment(self, text):
         """
@@ -258,5 +300,16 @@ class FetchData:
 
 # Usage example
 if __name__ == "__main__":
-    fetch_data = FetchData(api_key='your_api_key', api_secret='your_api_secret', query='Bitcoin', symbol='BTC/USDT')
-    fetch_data.fetch_and_analyze_data()
+    # Initialize FetchData object
+    fetcher = FetchData(api_key='your_api_key', 
+                    api_secret='your_api_secret', 
+                    bearer_token=bearer_token, 
+                    query='Bitcoin', 
+                    symbol='BTC/USDT')
+
+    # Fetch tweets
+    tweets = fetcher.get_tweets()
+
+    # Fetch and analyze data
+    fetcher.fetch_and_analyze_data()
+
