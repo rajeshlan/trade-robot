@@ -115,8 +115,8 @@ def train_price_prediction_model(asset_prices):
 
 # Bybit Exchange Functions
 exchange = ccxt.bybit({
-    'apiKey': 'LzvSGu2mYFi2L6VtBL',
-    'secret': 'KA3wvyIvMCJjGZEB0KVjH9WJSi30iwc9pIiG',
+    'apiKey': '___',
+    'secret': '___',
     'enableRateLimit': True,
 })
 
