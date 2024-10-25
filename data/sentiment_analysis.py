@@ -14,6 +14,8 @@ import os
 import argparse
 import requests
 import tensorflow as tf
+import seaborn as sns
+import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout, Conv1D, GlobalMaxPooling1D
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -98,6 +100,22 @@ def train_model(X_train, y_train, X_val, y_val, vocab_size, embedding_dim, max_l
     logging.info("Training model...")
     history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_val, y_val), callbacks=[early_stopping, checkpoint])
     return model
+
+def generate_sentiment_heatmap(sentiment_data):
+    """
+    Generate a heatmap to visualize sentiment scores against price changes.
+
+    :param sentiment_data: DataFrame containing sentiment scores and price data.
+    """
+    # Assuming the data has columns like 'Sentiment_Score' and 'Price_Change'
+    sentiment_correlation = sentiment_data.corr()
+    
+    # Plot heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(sentiment_correlation, annot=True, cmap="Blues", linewidths=0.5)
+    plt.title("Sentiment vs. Price Movement Heatmap")
+    plt.show()
+
 
 # Function to evaluate the model
 def evaluate_model(model, X_val, y_val):

@@ -1,0 +1,68 @@
+project_root/
+│
+├── config/
+│   ├── __init__.py
+│   ├── app_config.py
+│   └── API.env
+│
+├── data/
+│   ├── __init__.py
+│   ├── fetch_data.py
+│   ├── database.py
+│   ├── Fetch_tweets.py
+│   ├── h5reader.py
+│   ├── sentiment_model.h5
+│   ├── tokenizer.json
+│   └── sentiment_analysis.py
+│
+├── exchanges/
+│   ├── __init__.py
+│   ├── APIs.py
+│   ├── exchanges.py
+│   ├── synchronize_exchange_time.py
+│   └── test_bybit_api.py
+│
+├── monitoring/
+│   ├── __init__.py
+│   ├── monitoring.py
+│   └── utils.py
+│
+├── risk_management/
+│   └── risk_management.py
+│
+├── scripts/
+│   ├── example_usage.py
+│   ├── readdb.py
+│   └── run.py
+│   └── tempCodeRunner.py
+│
+├── strategies/
+│   ├── backtesting.py
+│   ├── technical_indicators.py
+│   └── trading_strategy.py
+|   └── visualizations.py
+│
+├── trading/
+│   ├── __init__.py
+│   ├── Placing_Orders.py
+│   ├── portfolio_management.py
+│   ├── price_prediction.py
+│   └── tradingbot.py
+│
+├── tests/
+│   ├── test_trading_bot.py
+│   ├── test_model.h5
+│   ├── test_tokenizer.json
+│   └── test.db
+│
+├── markdown/
+│   └── (all markdown-related files)
+│
+│
+├── venv/
+│   └── (virtual environment files)
+│
+├── .gitignore
+├── main.py
+├── requirements.txt
+└── README.md

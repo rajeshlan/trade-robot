@@ -18,6 +18,7 @@ from datetime import datetime
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from typing import Self, Tuple
 from dotenv import load_dotenv
+from ccxt import bybit
 import os
 
 load_dotenv(dotenv_path='F:\\trading\\improvised-code-of-the-pdf-GPT-main\\config\\API.env')
@@ -163,6 +164,46 @@ def detect_signals(df: pd.DataFrame, sma_lengths: Tuple[int, int]) -> None:
         logging.error("An error occurred during signal detection: %s", e)
         raise e
     
+def fetch_data_from_bybit(symbol="BTC/USDT", timeframe="1h", limit=100):
+    """
+    Fetch historical data from the Bybit exchange.
+    
+    Parameters:
+    - symbol (str): Trading pair symbol.
+    - timeframe (str): Timeframe for the data.
+    - limit (int): Number of data points to fetch.
+    
+    Returns:
+    - pd.DataFrame: DataFrame containing historical price data.
+    """
+    exchange = bybit({
+        'rateLimit': 1200,
+        'enableRateLimit': True,
+    })
+
+    try:
+        # Make sure the exchange is loaded to properly map the trading pairs
+        exchange.load_markets()
+        
+        # Adjust symbol format for Bybit if needed, e.g., "BTC/USDT" vs. "BTCUSDT"
+        if symbol not in exchange.symbols:
+            logging.warning(f"{symbol} is not found. Adjusting the symbol format if needed.")
+            symbol = symbol.replace("/", "")
+        
+        data = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        logging.info(f"Successfully fetched {len(df)} records from {symbol} on Bybit.")
+        return df
+    except Exception as e:
+        logging.error(f"Error fetching data from Bybit: {str(e)}")
+        return pd.DataFrame()
+
+# Usage Example
+if __name__ == "__main__":
+    df = fetch_data_from_bybit()
+    print(df.head())
+
 def fetch_historical_data(exchange, symbol, timeframe, limit=100, params=None):
     """
     Fetch historical OHLCV data from the specified exchange.
@@ -298,18 +339,25 @@ class FetchData:
             except Exception as e:
                 logging.error(f"Error in fetch_and_analyze_data: {e}")
 
-# Usage example
 if __name__ == "__main__":
+    # Replace with actual tokens and API keys from your .env or other secure storage
+    twitter_bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
+    bybit_api_key = os.getenv("BYBIT_API_KEY")
+    bybit_api_secret = os.getenv("BYBIT_API_SECRET")
+    query = "cryptocurrency"  # Your search query for fetching tweets
+    symbol = "BTC/USDT"        # Trading pair symbol
+    timeframe = '1m'           # Timeframe for fetching OHLCV data
+
     # Initialize FetchData object
-    fetcher = FetchData(api_key='your_api_key', 
-                    api_secret='your_api_secret', 
-                    bearer_token=bearer_token, 
-                    query='Bitcoin', 
-                    symbol='BTC/USDT')
+    fetcher = FetchData(
+        bearer_token=twitter_bearer_token,
+        api_key=bybit_api_key,
+        api_secret=bybit_api_secret,
+        query=query,
+        symbol=symbol,
+        timeframe=timeframe
+    )
 
-    # Fetch tweets
-    tweets = fetcher.get_tweets()
-
-    # Fetch and analyze data
+    # Start fetching data and analyzing
     fetcher.fetch_and_analyze_data()
 

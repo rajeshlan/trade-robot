@@ -96,15 +96,67 @@ def fetch_realtime_data(symbol, exchange_name='bybit'):
     except Exception as e:
         logging.error(f"Unexpected error fetching real-time data: {e}")
         return pd.DataFrame()
+    
+def fetch_data(query="SELECT * FROM historical_data;"):
+    """
+    Fetch data from the database based on the provided query.
+    Modify the connection string as needed.
+    
+    :param query: SQL query to fetch data.
+    :return: DataFrame containing the fetched data.
+    """
+    connection = sqlite3.connect("your_database.db")  # Update with your DB details
+    data = pd.read_sql(query, connection)
+    connection.close()
+    return data
 
 def close_db_connection(conn):
     """Close the database connection."""
     if conn:
         conn.close()
         logging.info("Database connection closed.")
+        
+def analyze_trend(historical_data, window=5):
+    """Analyze the trend from the last `window` closing prices."""
+    recent_closes = historical_data['Close'].tail(window)
+    if recent_closes.is_monotonic_increasing:
+        return "uptrend"
+    elif recent_closes.is_monotonic_decreasing:
+        return "downtrend"
+    else:
+        return "sideways"
+
+def estimate_time_to_reach(predicted_price, current_price, historical_data, window=5):
+    """Estimate time to reach the predicted price based on recent price changes."""
+    recent_closes = historical_data['Close'].tail(window)
+    avg_rate_of_change = (recent_closes.diff().mean())  # Average price change per hour
+    
+    # Avoid division by zero
+    if avg_rate_of_change == 0:
+        return "Cannot estimate time, no recent price movement."
+    
+    # Estimate the time needed based on the price change rate
+    time_to_reach = (predicted_price - current_price) / avg_rate_of_change
+    time_to_reach_hours = max(time_to_reach, 0)  # Ensure no negative time
+    
+    # Convert to a more readable format if necessary
+    if time_to_reach_hours < 1:
+        return f"{round(time_to_reach_hours * 60)} minutes"
+    else:
+        return f"{round(time_to_reach_hours)} hours"
+    
+    
+
+def analyze_trend(historical_data):
+    # Placeholder for trend analysis logic
+    return "uptrend"  # Example return value
+
+def estimate_time_to_reach(predicted_price, current_price, historical_data):
+    # Placeholder for time estimation logic
+    return "3 days"  # Example return value
 
 def predict_price(historical_data):
-    """Predict the future price based on historical data."""
+    """Predict the future price based on historical data, analyze trend, and estimate time."""
     # Log data fetched from historical_data
     logging.info(f"Data fetched from table historical_data successfully.\n{historical_data}")
     
@@ -128,13 +180,21 @@ def predict_price(historical_data):
     predicted_price = model.predict(X_test)
     logging.info(f"Predicted future price: {predicted_price[0]}")
 
+    # Calculate trend and estimate time
+    current_price = y[-1]
+    trend = analyze_trend(historical_data)
+    time_estimate = estimate_time_to_reach(predicted_price[0], current_price, historical_data)
+
+    logging.info(f"Trend: {trend}")
+    logging.info(f"Estimated time to reach predicted price: {time_estimate}")
+
     # Predict on the training set and calculate MSE
     y_pred_train = model.predict(X_train)
     mse = mean_squared_error(y_train, y_pred_train)
     logging.info(f"Mean Squared Error: {mse}")
 
-    # Return predicted price, training actuals, and predictions
-    return predicted_price[0], y_train, y_pred_train
+    # Return the predicted price, trend, time estimation, and training results
+    return predicted_price[0], trend, time_estimate, y_train, y_pred_train
 
 def plot_predictions(actual_data, predicted_data):
     """Plot actual vs predicted prices."""
@@ -167,10 +227,12 @@ def main():
         historical_data_db = fetch_historical_data(conn, "historical_data")
         print(historical_data_db)
 
-        # Predict future price from historical data
-        future_price, actual_train, predicted_train = predict_price(historical_data_db)
+        # Predict future price, trend, and time estimate from historical data
+        future_price, trend, time_estimate, actual_train, predicted_train = predict_price(historical_data_db)
         if future_price is not None:
             logging.info(f'Predicted future price: {future_price}')
+            logging.info(f'Trend: {trend}')
+            logging.info(f'Estimated time to reach predicted price: {time_estimate}')
             # Plot the actual vs. predicted values
             plot_predictions(actual_train, predicted_train)
 
@@ -208,13 +270,24 @@ class TestTradingBot(unittest.TestCase):
         exchange = bybit()
         since = exchange.parse8601(f"{datetime.now().strftime('%Y-%m-%d')}T00:00:00Z")
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', since=since, limit=5)
-        
+
         test_data = pd.DataFrame(ohlcv, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
         test_data['Date'] = pd.to_datetime(test_data['Timestamp'], unit='ms')
         test_data = test_data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-        
-        future_price, actual_train, predicted_train = predict_price(test_data)
+    
+        # Use the detailed `predict_price` function
+        future_price, trend, time_estimate, actual_train, predicted_train = predict_price(test_data)
+    
+        # Assertions to ensure the prediction works and no unexpected None values are returned
         self.assertIsNotNone(future_price)
+        self.assertIsNotNone(trend)
+        self.assertIsNotNone(time_estimate)
+        self.assertEqual(len(actual_train), len(predicted_train))
+
+        # Log the test results
+        logging.info(f"Future Price Prediction: {future_price}")
+        logging.info(f"Trend Analysis: {trend}")
+        logging.info(f"Estimated Time to Reach Predicted Price: {time_estimate}")
 
 if __name__ == "__main__":
     main()

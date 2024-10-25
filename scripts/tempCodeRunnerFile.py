@@ -1,10 +1,10 @@
+#import ta
 import ccxt
 import pandas as pd
 import logging
 import os
 import time
 import ntplib
-import ta
 import joblib
 import pandas_ta as ta  # Correct import for pandas_ta
 from datetime import datetime

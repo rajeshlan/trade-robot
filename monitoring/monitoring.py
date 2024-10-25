@@ -4,18 +4,47 @@ import logging
 import smtplib
 import pandas as pd
 import requests
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 import numpy as np
+from data.fetch_data import fetch_data_from_exchange  # Ensure this is correctly set up
+from strategies.visualizations import generate_performance_heatmap, plot_moving_averages
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def monitor_and_visualize():
+    """
+    Monitor performance and generate visualizations.
+    """
+    # Fetch the data
+    df = fetch_data_from_exchange()
+
+    if df.empty:
+        logging.warning("No data fetched. Visualization skipped.")
+        return
+    
+    # Track performance metrics
+    track_performance_metrics(df)
+
+    # Generate visualizations
+    plot_moving_averages(df)
+    
+    # Example: Save a heatmap of performance for different pairs
+    performance_data = pd.DataFrame({
+        'Pair1': [1, 2, 3],
+        'Pair2': [4, 5, 6],
+        'Pair3': [7, 8, 9]
+    })
+    generate_performance_heatmap(performance_data)
 
 def track_performance_metrics(df):
     """
     Track and log basic performance metrics of the provided DataFrame.
     
     Parameters:
-    - df (pd.DataFrame): DataFrame containing historical price data with columns ['timestamp', 'open', 'high', 'low', 'close', 'volume'].
+    - df (pd.DataFrame): DataFrame containing historical price data.
     """
     if df.empty:
         logging.warning("DataFrame is empty. No metrics to track.")
@@ -46,7 +75,7 @@ def track_performance_metrics(df):
 
 def predict_future_prices(close_prices, periods):
     """
-    Predict future closing prices using linear regression and determine trend duration.
+    Predict future closing prices using linear regression.
     
     Parameters:
     - close_prices (pd.Series): Series of closing prices.
@@ -82,11 +111,27 @@ def predict_future_prices(close_prices, periods):
     for idx, price in enumerate(predicted_prices):
         logging.info(f"Period {idx + 1}: {price[0]:.2f}")
 
-    # Optionally, you can send notifications based on the trend direction
+    # Optionally, send notifications based on the trend direction
     if trend_direction == "upward":
         send_notification("Predicted trend is upward.")
     elif trend_direction == "downward":
         send_notification("Predicted trend is downward.")
+        
+def generate_performance_heatmap(data, metrics=None):
+    """
+    Generate a heatmap showing performance metrics across different assets or strategies.
+
+    :param data: DataFrame containing performance data.
+    :param metrics: Specific performance metrics to include (optional).
+    """
+    if metrics:
+        data = data[metrics]
+    
+    # Plot heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(data, annot=True, cmap="viridis", linewidths=0.5)
+    plt.title("Performance Heatmap")
+    plt.show()
 
 def send_notification(message):
     """
@@ -142,15 +187,4 @@ def send_notification(message):
 
 # Example usage
 if __name__ == "__main__":
-    # Sample DataFrame for demonstration purposes
-    data = {
-        'timestamp': pd.date_range(start='2021-01-01', periods=100, freq='h'),
-        'open': pd.Series(range(100)),
-        'high': pd.Series(range(1, 101)),
-        'low': pd.Series(range(100)),
-        'close': pd.Series(range(1, 101)),
-        'volume': pd.Series(range(100, 200))
-    }
-    df = pd.DataFrame(data)
-    
-    track_performance_metrics(df)
+    monitor_and_visualize()

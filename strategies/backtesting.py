@@ -8,7 +8,7 @@ import logging
 import os
 import requests
 from textblob import TextBlob
-from fetch_data import fetch_ohlcv
+from data.fetch_data import fetch_ohlcv
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense

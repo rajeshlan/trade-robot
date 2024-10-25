@@ -34,7 +34,7 @@ def initialize_exchange(api_key, api_secret):
         'apiKey': api_key,
         'secret': api_secret,
         'enableRateLimit': True,
-    })
+    }) 
     logging.info("Initialized Bybit exchange")
     return exchange
 

@@ -3,7 +3,8 @@ import ccxt
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from exchanges import send_notification
+from exchanges.exchanges import send_notification
+
 
 # Initialize the model (you can load a pre-trained model instead)
 model = LinearRegression()

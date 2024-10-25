@@ -3,6 +3,8 @@ import logging
 import ccxt
 import pandas as pd
 import pandas_ta as ta
+import seaborn as sns
+import matplotlib.pyplot as plt
 from synchronize_exchange_time import synchronize_system_time
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -134,6 +136,26 @@ class TradingBot:
         except Exception as e:
             logging.error("Error during technical analysis: %s", e)
             raise e
+        
+def generate_technical_correlation_heatmap(data, columns=None):
+    """
+    Generate a heatmap showing the correlation between different technical indicators.
+
+    :param data: DataFrame containing the data.
+    :param columns: Specific columns to include in the heatmap (optional).
+    """
+    if columns:
+        data = data[columns]
+    
+    # Calculate correlation
+    correlation_matrix = data.corr()
+    
+    # Plot heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", linewidths=0.5)
+    plt.title("Technical Indicators Correlation Heatmap")
+    plt.show()
+
 
     def trading_strategy(self, df):
         """Implement the trading strategy and generate buy/sell signals."""
