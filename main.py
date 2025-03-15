@@ -228,8 +228,8 @@ def main():
         predicted_prices = predict_prices(model, scaler, df)
 
         # Sentiment analysis
-        api_key = '7V2oBo1LtvQ8MYkXnqYraiuDd'  # Replace with your actual key
-        api_secret = 'qVre858rgAGTWFCQPapdvx1bYYy0dDxnM6Nt2mFSZuAVHDnkL5'  # Replace with your actual secret
+        api_key = 'xx'  # Replace with your actual key
+        api_secret = 'xx'  # Replace with your actual secret
         tweets = get_tweets(api_key, 'BTC')
         sentiment_score = analyze_sentiment(tweets)
 
