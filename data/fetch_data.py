@@ -1,363 +1,167 @@
-#RUN ON DIFFECT SYSTEM AS YOUR PC HAS ISSUES
+# python data\fetch_data.py (2024-12-28 13:21:44,920 - ERROR - Error fetching tweets: 429 Too Many Requests)
 
-from multiprocessing import Value
-import numpy as np
-from textblob import TextBlob
-import tweepy
 import os
+import logging
+from datetime import datetime
 import ccxt
 import pandas as pd
 import pandas_ta as ta
-import pandas as pd
-import logging
-import time
-import ccxt
-import logging
-import pandas as pd
-from datetime import datetime
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from typing import Self, Tuple
 from dotenv import load_dotenv
-from ccxt import bybit
-import os
-
-load_dotenv(dotenv_path='F:\\trading\\improvised-code-of-the-pdf-GPT-main\\config\\API.env')
-
-
-bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import tweepy
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
-def synchronize_time_with_exchange(exchange):
+# Load environment variables
+load_dotenv(dotenv_path='D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env')
+
+# Twitter Bearer Token
+bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
+
+# Bybit API credentials
+bybit_api_key = os.getenv("BYBIT_API_KEY")
+bybit_api_secret = os.getenv("BYBIT_API_SECRET")
+
+def fetch_data_from_bybit(symbol='BTC/USDT:USDT', timeframe='1m', limit=500) -> pd.DataFrame:
+    """
+    Fetch OHLCV data from Bybit and return a DataFrame.
+
+    Args:
+        symbol (str): Trading pair symbol (e.g., 'BTC/USDT:USDT').
+        timeframe (str): Timeframe for OHLCV data.
+        limit (int): Number of data points to fetch.
+
+    Returns:
+        pd.DataFrame: DataFrame containing OHLCV data.
+    """
+    df = pd.DataFrame()  # ✅ Ensure df is always initialized
+
     try:
-        exchange_time = exchange.fetch_time()
-        logging.info(f"Exchange time: {exchange_time}")
-        # Add your logic for time synchronization here.
-    except (ccxt.NetworkError, ccxt.ExchangeError, ccxt.BaseError) as e:
-        logging.error(f"Error synchronizing time with exchange: {type(e).__name__}, {str(e)}")
-        return None
+        # Initialize the Bybit exchange instance
+        exchange = ccxt.bybit({
+            'apiKey': bybit_api_key,
+            'secret': bybit_api_secret,
+            'enableRateLimit': True,
+        })
+
+        # Fetch OHLCV data
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+
+        # Convert to pandas DataFrame
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+
+        # ✅ Now it's safe to print df.columns
+        print("Fetched DataFrame columns:", df.columns)
+
+        logging.info(f"Successfully fetched {len(df)} OHLCV data points from Bybit.")
+
     except Exception as e:
-        logging.error(f"Unexpected error: {str(e)}")
-        return None
+        logging.error(f"Error fetching OHLCV data: {e}")
 
-# fetch_data.py
-def get_historical_data(file_path):
+    return df  # ✅ Always return a DataFrame, even if empty
+
+def perform_technical_analysis(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Load historical data from a CSV file.
+    Perform technical analysis by adding SMA, RSI, and MACD to the DataFrame.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing OHLCV data.
+
+    Returns:
+        pd.DataFrame: DataFrame with added indicators.
     """
     try:
-        df = pd.read_csv(file_path)
+        df['SMA_20'] = ta.sma(df['close'], length=20)
+        df['SMA_50'] = ta.sma(df['close'], length=50)
+        df['RSI'] = ta.rsi(df['close'], length=14)
+
+        macd = ta.macd(df['close'], fast=12, slow=26, signal=9)
+        if macd is not None:
+            df['MACD'] = macd['MACD_12_26_9']
+            df['MACD_signal'] = macd['MACDs_12_26_9']
+
+        logging.info("Technical analysis completed. Indicators added.")
         return df
     except Exception as e:
-        raise IOError(f"Error loading historical data from {file_path}: {e}")
+        logging.error(f"Error performing technical analysis: {e}")
+        return df
 
-# Add any other functions like get_tweets, analyze_sentiment, etc.
-def get_tweets(bearer_token, query):
-    client = tweepy.Client(bearer_token=bearer_token)
+def get_tweets(bearer_token: str, query: str) -> list:
+    """
+    Fetch recent tweets using the Twitter API.
+
+    Args:
+        bearer_token (str): Twitter API bearer token.
+        query (str): Query string to search for tweets.
+
+    Returns:
+        list: List of tweets in English.
+    """
     try:
-        response = client.search_recent_tweets(query=query, max_results=100, tweet_fields=["lang"])
+        client = tweepy.Client(bearer_token=bearer_token)
+        response = client.search_recent_tweets(query=query, max_results=10, tweet_fields=["lang"])
+        
+        if response.errors:
+            logging.error(f"Twitter API Error: {response.errors}")
+            return []
+
         tweets = response.data
-        return [tweet.text for tweet in tweets if tweet.lang == 'en'] if tweets else []
-    except Exception as e:
+        if tweets:
+            english_tweets = [tweet.text for tweet in tweets if hasattr(tweet, "lang") and tweet.lang == "en"]
+            logging.info(f"Fetched {len(english_tweets)} English tweets for query '{query}'.")
+            return english_tweets
+        else:
+            logging.info("No tweets found for the query.")
+            return []
+    except tweepy.TweepyException as e:
         logging.error(f"Error fetching tweets: {e}")
         return []
 
-def analyze_sentiment(text):
-    analyzer = SentimentIntensityAnalyzer()
-    sentiment = analyzer.polarity_scores(text)
-    logging.info(f"Sentiment analysis: {sentiment}")
-    return sentiment
-
-def fetch_ohlcv(exchange, symbol, timeframe='1m', limit=100):
-    try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-        logging.info(f"Fetched {len(ohlcv)} data points for {symbol} on {timeframe} timeframe.")
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        return df
-    except ccxt.BaseError as e:
-        logging.error(f"Error fetching OHLCV data: {type(e).__name__} - {str(e)}")
-        return None
-    except Exception as e:
-        logging.error(f"Unexpected error fetching OHLCV data: {str(e)}")
-        return None
-
-
-def perform_technical_analysis(df: pd.DataFrame, sma_lengths: Tuple[int, int] = (20, 50), rsi_length: int = 14, macd_params: Tuple[int, int, int] = (12, 26, 9)) -> pd.DataFrame:
+def analyze_sentiment(text: str) -> dict:
     """
-    Perform technical analysis on the OHLCV data DataFrame.
-    
+    Analyze the sentiment of a text using VaderSentiment.
+
     Args:
-    - df: DataFrame containing OHLCV data
-    - sma_lengths: Tuple containing lengths for SMAs (default: (20, 50))
-    - rsi_length: Length for RSI (default: 14)
-    - macd_params: Tuple containing MACD parameters (fast, slow, signal) (default: (12, 26, 9))
-    
+        text (str): The text to analyze.
+
     Returns:
-    - df: DataFrame with added technical indicators
+        dict: Sentiment analysis scores.
     """
     try:
-        # Adding technical indicators
-        sma_short, sma_long = sma_lengths
-        macd_fast, macd_slow, macd_signal = macd_params
-        
-        # Calculate SMAs
-        df[f'SMA_{sma_short}'] = ta.sma(df['close'], length=sma_short)
-        df[f'SMA_{sma_long}'] = ta.sma(df['close'], length=sma_long)
-        
-        # Calculate RSI
-        df['RSI'] = ta.rsi(df['close'], length=rsi_length)
-        
-        # Calculate MACD
-        macd_data = ta.macd(df['close'], fast=macd_fast, slow=macd_slow, signal=macd_signal)
-        
-        # Assign MACD values
-        df['MACD'] = macd_data['MACD'] if 'MACD' in macd_data else None
-        df['MACD_signal'] = macd_data['MACD_signal'] if 'MACD_signal' in macd_data else None
-        
-        # Log detected patterns
-        logging.info("Calculated SMA (%d, %d), RSI (%d), and MACD (%d, %d, %d) indicators", sma_short, sma_long, rsi_length, macd_fast, macd_slow, macd_signal)
-        
-        detect_signals(df, sma_lengths)
-        
-        return df
-    
+        analyzer = SentimentIntensityAnalyzer()
+        sentiment = analyzer.polarity_scores(text)
+        logging.info(f"Sentiment analysis result: {sentiment}")
+        return sentiment
     except Exception as e:
-        logging.error("An error occurred during technical analysis: %s", e)
-        raise e
+        logging.error(f"Error analyzing sentiment: {e}")
+        return {}
 
-def detect_signals(df: pd.DataFrame, sma_lengths: Tuple[int, int]) -> None:
+def main():
     """
-    Detect bullish or bearish signals in the OHLCV data.
-    
-    Args:
-    - df: DataFrame containing OHLCV data
-    - sma_lengths: Tuple containing lengths for SMAs
+    Main function to execute the workflow.
     """
-    try:
-        sma_short, sma_long = sma_lengths
-        latest = df.iloc[-1]
-        previous = df.iloc[-2]
-        
-        # Example signal detection for SMA crossover
-        if pd.notna(previous[f'SMA_{sma_short}']) and pd.notna(previous[f'SMA_{sma_long}']) and pd.notna(latest[f'SMA_{sma_short}']) and pd.notna(latest[f'SMA_{sma_long}']):
-            if previous[f'SMA_{sma_short}'] < previous[f'SMA_{sma_long}'] and latest[f'SMA_{sma_short}'] > latest[f'SMA_{sma_long}']:
-                logging.info("Bullish SMA crossover detected")
-            elif previous[f'SMA_{sma_short}'] > previous[f'SMA_{sma_long}'] and latest[f'SMA_{sma_short}'] < latest[f'SMA_{sma_long}']:
-                logging.info("Bearish SMA crossover detected")
-        
-        # Example signal detection for RSI conditions (using correct column name)
-        if pd.notna(latest['RSI']):
-            if latest['RSI'] > 70:
-                logging.info("RSI indicates overbought conditions")
-            elif latest['RSI'] < 30:
-                logging.info("RSI indicates oversold conditions")
-        
-        # Example signal detection for MACD crossover (using correct column name)
-        if pd.notna(previous['MACD']) and pd.notna(previous['MACD_signal']) and pd.notna(latest['MACD']) and pd.notna(latest['MACD_signal']):
-            if previous['MACD'] < previous['MACD_signal'] and latest['MACD'] > latest['MACD_signal']:
-                logging.info("Bullish MACD crossover detected")
-            elif previous['MACD'] > previous['MACD_signal'] and latest['MACD'] < latest['MACD_signal']:
-                logging.info("Bearish MACD crossover detected")
-                
-    except Exception as e:
-        logging.error("An error occurred during signal detection: %s", e)
-        raise e
-    
-def fetch_data_from_bybit(symbol="BTC/USDT", timeframe="1h", limit=100):
-    """
-    Fetch historical data from the Bybit exchange.
-    
-    Parameters:
-    - symbol (str): Trading pair symbol.
-    - timeframe (str): Timeframe for the data.
-    - limit (int): Number of data points to fetch.
-    
-    Returns:
-    - pd.DataFrame: DataFrame containing historical price data.
-    """
-    exchange = bybit({
-        'rateLimit': 1200,
-        'enableRateLimit': True,
-    })
+    # Fetch data from Bybit
+    logging.info("Fetching OHLCV data from Bybit...")
+    ohlcv_data = fetch_data_from_bybit(limit=500)
 
-    try:
-        # Make sure the exchange is loaded to properly map the trading pairs
-        exchange.load_markets()
-        
-        # Adjust symbol format for Bybit if needed, e.g., "BTC/USDT" vs. "BTCUSDT"
-        if symbol not in exchange.symbols:
-            logging.warning(f"{symbol} is not found. Adjusting the symbol format if needed.")
-            symbol = symbol.replace("/", "")
-        
-        data = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        logging.info(f"Successfully fetched {len(df)} records from {symbol} on Bybit.")
-        return df
-    except Exception as e:
-        logging.error(f"Error fetching data from Bybit: {str(e)}")
-        return pd.DataFrame()
+    if not ohlcv_data.empty:
+        # Perform technical analysis
+        logging.info("Performing technical analysis...")
+        analyzed_data = perform_technical_analysis(ohlcv_data)
+        logging.info(f"Analyzed data preview:\n{analyzed_data[['timestamp', 'close', 'SMA_20', 'RSI']].head()}")
 
-# Usage Example
-if __name__ == "__main__":
-    df = fetch_data_from_bybit()
-    print(df.head())
+    # Fetch and analyze tweets
+    logging.info("Fetching tweets for sentiment analysis...")
+    tweets = get_tweets(bearer_token, query="Bitcoin")
 
-def fetch_historical_data(exchange, symbol, timeframe, limit=100, params=None):
-    """
-    Fetch historical OHLCV data from the specified exchange.
-    
-    :param exchange: The exchange object initialized with API keys.
-    :param symbol: The trading pair symbol (e.g., 'BTCUSDT').
-    :param timeframe: The timeframe for the data (e.g., '1d' for daily data).
-    :param limit: The number of data points to retrieve (default is 100).
-    :param params: Additional parameters for the API call (default is None).
-    :return: A list of OHLCV data.
-    """
-    if params is None:
-        params = {}
-    try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit, params=params)
-        return ohlcv
-    except ccxt.BaseError as e:
-        print(f"An error occurred: {e}")
-        return []
-
-def fetch_real_time_data(exchange: ccxt.Exchange, symbol: str, timeframe: str = '1m', limit: int = 100):
-    """
-    Fetch real-time OHLCV data for a symbol from the exchange.
-    Continuously fetches new data points.
-    
-    Args:
-    - exchange: ccxt.Exchange object
-    - symbol: Trading pair symbol (e.g., 'BTCUSDT')
-    - timeframe: Timeframe for OHLCV data (default: '1m')
-    - limit: Number of data points to initially fetch (default: 100)
-    """
-    try:
-        while True:
-            # Fetch new data points
-            new_df = fetch_ohlcv(exchange, symbol, timeframe, limit)
-            
-            # Perform technical analysis on new data
-            new_df = perform_technical_analysis(new_df)
-            
-            # Print or process new data as needed
-            print(new_df)
-            
-            # Sleep for a defined period before fetching new data
-            time.sleep(60)  # Adjust sleep duration as needed
-    except Exception as e:
-        logging.error(f"Error fetching real-time data: {e}")
-
-# Define the FetchData class
-class FetchData:
-    def __init__(self, bearer_token: str, api_key: str, api_secret: str, query: str, symbol: str, timeframe: str = '1m'):
-        self.bearer_token = bearer_token
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.query = query
-        self.symbol = symbol
-        self.timeframe = timeframe
-        
-        # Properly initialize the Bybit exchange with authentication
-        self.exchange = ccxt.bybit({
-            'apiKey': self.api_key,
-            'secret': self.api_secret,
-            'enableRateLimit': True,
-            'options': {
-                'defaultType': 'future',  # Use 'spot' if not trading futures
-            }
-        })
-
-    def get_tweets(self):
-        """
-        Fetch tweets based on the specified query.
-        """
-        client = tweepy.Client(bearer_token=self.bearer_token)
-        try:
-            response = client.search_recent_tweets(query=self.query, max_results=100, tweet_fields=["lang"])
-            tweets = response.data
-            return [tweet.text for tweet in tweets if tweet.lang == 'en'] if tweets else []
-        except Exception as e:
-            logging.error(f"Error fetching tweets: {e}")
-            return []
-
-
-    
-    def get_tweets(self):
-        """
-        Fetch tweets based on the specified query.
-        """
-        try:
-            # Log that the function is attempting to use the bearer token
-            logging.info(f"Using bearer token: {self.bearer_token[:10]}...")  # Mask the token for security
-
-            # Initialize the OAuth2 handler with the bearer token
-            auth = tweepy.OAuth2BearerHandler(self.bearer_token)
-            api = tweepy.API(auth)
-
-            # Fetch tweets (make sure the 'search_tweets' method parameters are valid)
-            tweets = api.search_tweets(q=self.query, count=100, lang='en')
-
-            # Return only the text content of the tweets
-            return [tweet.text for tweet in tweets]
-
-        except Exception as e:
-            # Log the error if fetching tweets fails
-            logging.error(f"Error fetching tweets: {e}")
-            return []
-
-
-
-    def analyze_sentiment(self, text):
-        """
-        Analyze sentiment of the provided text using TextBlob.
-        """
-        blob = TextBlob(text)
-        return blob.sentiment
-
-    def fetch_and_analyze_data(self):
-        """
-        Fetch real-time data and analyze sentiment.
-        """
-        while True:
-            try:
-                # Fetch real-time OHLCV data
-                ohlcv = fetch_ohlcv(self.exchange, self.symbol, self.timeframe)
-                logging.info(f"Fetched {len(ohlcv)} data points for {self.symbol}")
-
-                # Perform sentiment analysis on the fetched tweets
-                tweets = self.get_tweets()
-                for tweet in tweets:
-                    sentiment = self.analyze_sentiment(tweet)
-                    logging.info(f"Tweet: {tweet}, Sentiment: {sentiment}")
-
-                # Sleep for a defined period before fetching new data
-                time.sleep(60)  # Adjust sleep duration as needed
-            except Exception as e:
-                logging.error(f"Error in fetch_and_analyze_data: {e}")
+    if tweets:
+        for tweet in tweets[:5]:  # Analyze first 5 tweets for brevity
+            analyze_sentiment(tweet)
 
 if __name__ == "__main__":
-    # Replace with actual tokens and API keys from your .env or other secure storage
-    twitter_bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
-    bybit_api_key = os.getenv("BYBIT_API_KEY")
-    bybit_api_secret = os.getenv("BYBIT_API_SECRET")
-    query = "cryptocurrency"  # Your search query for fetching tweets
-    symbol = "BTC/USDT"        # Trading pair symbol
-    timeframe = '1m'           # Timeframe for fetching OHLCV data
-
-    # Initialize FetchData object
-    fetcher = FetchData(
-        bearer_token=twitter_bearer_token,
-        api_key=bybit_api_key,
-        api_secret=bybit_api_secret,
-        query=query,
-        symbol=symbol,
-        timeframe=timeframe
-    )
-
-    # Start fetching data and analyzing
-    fetcher.fetch_and_analyze_data()
-
+    main()

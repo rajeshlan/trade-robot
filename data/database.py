@@ -1,294 +1,201 @@
-#python -m data.database (this is what you need to write to execute)
-
+# python data\database.py
 
 import sqlite3
-import ccxt
 import pandas as pd
+import ccxt
 import logging
-import matplotlib.pyplot as plt
-from ccxt import bybit
-import unittest
-from datetime import datetime
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-import sys
+import matplotlib
+matplotlib.use('Agg')  # Switch to non-interactive backend
+import matplotlib.pyplot as plt
+from datetime import datetime
 import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import inspect
 
-# Adjust sys.path to include the project's root directory
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+# Load environment variables
+load_dotenv()
 
-# Now you can import app_config
-from config.app_config import DB_FILE
-
-# Set up logging
+db_path = os.getenv("DB_PATH", "trading_bot.db")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def create_db_connection(db_file):
-    """Create and return a database connection."""
+# Database Operations
+def create_db_connection():
     try:
-        conn = sqlite3.connect(db_file)
-        logging.info(f"Connected to the database {db_file} successfully.")
+        logging.info("Attempting to connect to the database.")
+        conn = sqlite3.connect(db_path)
+        logging.info("Database connection established.")
         return conn
     except sqlite3.Error as e:
-        logging.error(f"Error connecting to database: {e}")
-        return None
+        logging.error(f"Database connection error: {e}")
+        raise
 
-def store_data_to_db(conn, df, table_name):
-    """Store a DataFrame into a database table."""
+def store_data_to_db(conn, table_name, df):
     try:
-        with conn:
-            df.to_sql(table_name, conn, if_exists='replace', index=False)
-            logging.info(f"Data stored in table {table_name} successfully.")
-    except Exception as e:
-        logging.error(f"Error storing data to table {table_name}: {e}")
+        logging.info(f"Storing data to table '{table_name}'.")
+        df.to_sql(table_name, conn, if_exists='replace', index=False)
+        logging.info(f"Data stored in table '{table_name}'.")
+    except sqlite3.Error as e:
+        logging.error(f"Error storing data to table '{table_name}': {e}")
+        raise
 
-def fetch_historical_data_from_exchange(symbol, timeframe='1h', limit=300, exchange_name='bybit'):
-    """Fetch historical data (OHLCV) for a given symbol from the exchange."""
+
+
+def fetch_historical_data(table_name="historical_data"):
     try:
-        exchange = getattr(ccxt, exchange_name)()
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-        # Create a DataFrame from the OHLCV data
-        df = pd.DataFrame(ohlcv, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
-        df['Date'] = pd.to_datetime(df['Timestamp'], unit='ms')
-        df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-        logging.info(f"Historical data for {symbol} fetched successfully.")
-        return df
-    except (ccxt.NetworkError, ccxt.ExchangeError) as e:
-        logging.error(f"Network or Exchange error fetching historical data: {e}")
-        return pd.DataFrame()
-    except Exception as e:
-        logging.error(f"Unexpected error fetching historical data: {e}")
-        return pd.DataFrame()
+        db_url = "sqlite:///D:/RAJESH FOLDER/PROJECTS/trade-robot/trading_bot.db"
+        engine = create_engine(db_url)
 
-def fetch_historical_data(conn, table_name):
-    """Fetch historical data from a database table into a DataFrame."""
-    try:
-        query = f"SELECT * FROM {table_name} ORDER BY Date DESC"  # Fetch the most recent data
-        df = pd.read_sql(query, conn)
-        logging.info(f"Data fetched from table {table_name} successfully.")
-        return df
-    except Exception as e:
-        logging.error(f"Error fetching data from table {table_name}: {e}")
-        return pd.DataFrame()
-
-def fetch_realtime_data(symbol, exchange_name='bybit'):
-    """Fetch real-time data for a given symbol from an exchange using CCXT."""
-    try:
-        exchange = getattr(ccxt, exchange_name)()
-        # Fetch the last 5 real-time ticks
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=5)
-        data = {
-            'Date': [pd.to_datetime(ohlcv[i][0], unit='ms').strftime('%Y-%m-%d %H:%M:%S') for i in range(5)],
-            'Symbol': [symbol] * 5,
-            'Open': [ohlcv[i][1] for i in range(5)],
-            'High': [ohlcv[i][2] for i in range(5)],
-            'Low': [ohlcv[i][3] for i in range(5)],
-            'Close': [ohlcv[i][4] for i in range(5)],
-            'Volume': [ohlcv[i][5] for i in range(5)],
-        }
-        df = pd.DataFrame(data)
-        logging.info(f"Real-time data for {symbol} fetched successfully.")
-        return df
-    except (ccxt.NetworkError, ccxt.ExchangeError) as e:
-        logging.error(f"Network or Exchange error fetching real-time data: {e}")
-        return pd.DataFrame()
-    except Exception as e:
-        logging.error(f"Unexpected error fetching real-time data: {e}")
-        return pd.DataFrame()
-    
-def fetch_data(query="SELECT * FROM historical_data;"):
-    """
-    Fetch data from the database based on the provided query.
-    Modify the connection string as needed.
-    
-    :param query: SQL query to fetch data.
-    :return: DataFrame containing the fetched data.
-    """
-    connection = sqlite3.connect("your_database.db")  # Update with your DB details
-    data = pd.read_sql(query, connection)
-    connection.close()
-    return data
-
-def close_db_connection(conn):
-    """Close the database connection."""
-    if conn:
-        conn.close()
-        logging.info("Database connection closed.")
+        logging.info(f"Checking if table '{table_name}' exists before fetching data.")
         
-def analyze_trend(historical_data, window=5):
-    """Analyze the trend from the last `window` closing prices."""
-    recent_closes = historical_data['Close'].tail(window)
-    if recent_closes.is_monotonic_increasing:
-        return "uptrend"
-    elif recent_closes.is_monotonic_decreasing:
-        return "downtrend"
+        inspector = inspect(engine)
+        if table_name not in inspector.get_table_names():
+            raise ValueError(f"Table '{table_name}' does not exist in the database.")
+
+        logging.info(f"Fetching data from table '{table_name}' using SQLAlchemy.")
+        query = f"SELECT * FROM {table_name}"
+        df = pd.read_sql(query, engine)
+
+        if df.empty:
+            raise ValueError(f"No data found in {table_name} table.")
+
+        # Ensure correct column names for processing
+        df.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        logging.info(f"Successfully fetched {len(df)} rows from table '{table_name}'.")
+        return df
+
+    except SQLAlchemyError as e:
+        logging.error(f"SQLAlchemy error fetching data from '{table_name}': {e}")
+        return pd.DataFrame()
+    except ValueError as e:
+        logging.error(e)
+        return pd.DataFrame()
+
+# Data Fetching
+def fetch_historical_data_from_exchange(exchange, symbol, timeframe, limit):
+    try:
+        logging.info(f"Fetching historical data for {symbol} with timeframe {timeframe} and limit {limit}.")
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        logging.info(f"Successfully fetched historical data for {symbol}.")
+        return df
+    except ccxt.BaseError as e:
+        logging.error(f"Error fetching historical data from exchange: {e}")
+        raise
+
+def fetch_realtime_data(exchange, symbol, timeframe):
+    try:
+        logging.info(f"Fetching real-time data for {symbol} with timeframe {timeframe}.")
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=1)
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        logging.info(f"Successfully fetched real-time data for {symbol}.")
+        return df
+    except ccxt.BaseError as e:
+        logging.error(f"Error fetching real-time data from exchange: {e}")
+        raise
+
+# Data Analysis and Predictions
+def analyze_trend(df):
+    logging.info("Analyzing trend based on closing prices.")
+    if df['close'].iloc[-1] > df['close'].iloc[0]:
+        logging.info("Trend detected: Uptrend")
+        return 'Uptrend'
+    elif df['close'].iloc[-1] < df['close'].iloc[0]:
+        logging.info("Trend detected: Downtrend")
+        return 'Downtrend'
     else:
-        return "sideways"
+        logging.info("Trend detected: Sideways")
+        return 'Sideways'
 
-def estimate_time_to_reach(predicted_price, current_price, historical_data, window=5):
-    """Estimate time to reach the predicted price based on recent price changes."""
-    recent_closes = historical_data['Close'].tail(window)
-    avg_rate_of_change = (recent_closes.diff().mean())  # Average price change per hour
-    
-    # Avoid division by zero
-    if avg_rate_of_change == 0:
-        return "Cannot estimate time, no recent price movement."
-    
-    # Estimate the time needed based on the price change rate
-    time_to_reach = (predicted_price - current_price) / avg_rate_of_change
-    time_to_reach_hours = max(time_to_reach, 0)  # Ensure no negative time
-    
-    # Convert to a more readable format if necessary
-    if time_to_reach_hours < 1:
-        return f"{round(time_to_reach_hours * 60)} minutes"
-    else:
-        return f"{round(time_to_reach_hours)} hours"
-    
-    
+def estimate_time_to_reach(model, df, target_price):
+    try:
+        logging.info(f"Estimating time to reach target price: {target_price}.")
+        X = df.index.values.reshape(-1, 1)
+        predicted_index = (target_price - model.intercept_) / model.coef_
+        predicted_time = pd.Timestamp(df['timestamp'].iloc[0]) + pd.to_timedelta(predicted_index, unit='s')
+        logging.info(f"Estimated time to reach target price: {predicted_time}.")
+        return predicted_time
+    except Exception as e:
+        logging.error(f"Error estimating time to reach price: {e}")
+        raise
 
-def analyze_trend(historical_data):
-    # Placeholder for trend analysis logic
-    return "uptrend"  # Example return value
+def predict_price(df):
+    try:
+        logging.info("Starting price prediction using Linear Regression.")
+        X = df.index.values.reshape(-1, 1)
+        y = df['close'].values.reshape(-1, 1)
+        model = LinearRegression()
+        model.fit(X, y)
+        predictions = model.predict(X)
+        trend = analyze_trend(df)
+        logging.info(f"Prediction complete. Trend: {trend}")
+        return predictions, model
+    except Exception as e:
+        logging.error(f"Error in price prediction: {e}")
+        raise
 
-def estimate_time_to_reach(predicted_price, current_price, historical_data):
-    # Placeholder for time estimation logic
-    return "3 days"  # Example return value
+# Visualization
+def plot_predictions(df, predictions):
+    try:
+        logging.info("Plotting actual vs predicted prices.")
+        plt.figure(figsize=(10, 5))
+        plt.plot(df['timestamp'], df['close'], label='Actual Price')
+        plt.plot(df['timestamp'], predictions, label='Predicted Price', linestyle='--')
+        plt.xlabel('Time')
+        plt.ylabel('Price')
+        plt.title('Actual vs Predicted Prices')
+        plt.legend()
+        plt.grid()
+        plt.savefig('predictions_plot.png')  # Save plot to file instead of showing it
+        logging.info("Successfully saved predictions plot as 'predictions_plot.png'.")
+    except Exception as e:
+        logging.error(f"Error in plotting predictions: {e}")
+        raise
 
-def predict_price(historical_data):
-    """Predict the future price based on historical data, analyze trend, and estimate time."""
-    # Log data fetched from historical_data
-    logging.info(f"Data fetched from table historical_data successfully.\n{historical_data}")
-    
-    # Using 'Open' and 'Volume' as features for prediction
-    X = historical_data[['Open', 'Volume']].values
-    y = historical_data['Close'].values
-
-    # Log the shapes of the features and target arrays
-    logging.info(f"X shape: {X.shape}")
-    logging.info(f"y shape: {y.shape}")
-
-    # Split the data into training and testing sets
-    X_train, y_train = X[:-1], y[:-1]  # Train on all but the last row
-    X_test, y_test = X[-1:], y[-1:]    # Test on the last row
-
-    # Initialize and train the model
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-
-    # Predict the future price using the last row of features
-    predicted_price = model.predict(X_test)
-    logging.info(f"Predicted future price: {predicted_price[0]}")
-
-    # Calculate trend and estimate time
-    current_price = y[-1]
-    trend = analyze_trend(historical_data)
-    time_estimate = estimate_time_to_reach(predicted_price[0], current_price, historical_data)
-
-    logging.info(f"Trend: {trend}")
-    logging.info(f"Estimated time to reach predicted price: {time_estimate}")
-
-    # Predict on the training set and calculate MSE
-    y_pred_train = model.predict(X_train)
-    mse = mean_squared_error(y_train, y_pred_train)
-    logging.info(f"Mean Squared Error: {mse}")
-
-    # Return the predicted price, trend, time estimation, and training results
-    return predicted_price[0], trend, time_estimate, y_train, y_pred_train
-
-def plot_predictions(actual_data, predicted_data):
-    """Plot actual vs predicted prices."""
-    plt.figure(figsize=(10, 6))
-    plt.plot(actual_data, label='Actual Prices', color='blue')
-    plt.plot(predicted_data, label='Predicted Prices', color='orange')
-    plt.legend()
-    plt.xlabel("Time")
-    plt.ylabel("Price")
-    plt.title("Actual vs. Predicted Prices")
-    plt.show()
-
+# Main Execution
 def main():
-    """Main function to run the trading bot."""
-    # Create a database connection
-    conn = create_db_connection(DB_FILE)
+    try:
+        logging.info("Starting main execution.")
+        conn = create_db_connection()
 
-    if conn:
-        # Fetch real-time data from Bybit and store in the database
-        realtime_data = fetch_realtime_data('BTC/USDT')
-        if not realtime_data.empty:
-            store_data_to_db(conn, realtime_data, "realtime_data")
+        # Configure exchange
+        logging.info("Configuring exchange for Binance.")
+        exchange = ccxt.binance({"rateLimit": 1200, "enableRateLimit": True})
+        symbol = "BTCUSDT"
+        timeframe = "1h"
+        limit = 100
 
-        # Fetch historical data from the exchange and store in the database
-        historical_data = fetch_historical_data_from_exchange('BTC/USDT', timeframe='1h', limit=300)
-        if not historical_data.empty:
-            store_data_to_db(conn, historical_data, "historical_data")
+        # Fetch historical data
+        logging.info("Fetching historical data from exchange.")
+        historical_data = fetch_historical_data_from_exchange(exchange, symbol, timeframe, limit)
 
-        # Fetch and display the updated historical data from the database
-        historical_data_db = fetch_historical_data(conn, "historical_data")
-        print(historical_data_db)
+        # Store to DB
+        logging.info("Storing historical data to database.")
+        store_data_to_db(conn, "historical_data", historical_data)
 
-        # Predict future price, trend, and time estimate from historical data
-        future_price, trend, time_estimate, actual_train, predicted_train = predict_price(historical_data_db)
-        if future_price is not None:
-            logging.info(f'Predicted future price: {future_price}')
-            logging.info(f'Trend: {trend}')
-            logging.info(f'Estimated time to reach predicted price: {time_estimate}')
-            # Plot the actual vs. predicted values
-            plot_predictions(actual_train, predicted_train)
+        # Fetch data from DB
+        logging.info("Fetching data back from database for analysis.")
+        df = fetch_historical_data(conn, "historical_data")
 
-        # Close the database connection
-        close_db_connection(conn)
+        # Predict prices
+        logging.info("Performing price prediction.")
+        predictions, model = predict_price(df)
 
-class TestTradingBot(unittest.TestCase):
+        # Plot predictions
+        logging.info("Plotting predictions.")
+        plot_predictions(df, predictions)
 
-    def test_db_connection(self):
-        """Test if the database connection is successful."""
-        conn = create_db_connection('test.db')
-        self.assertIsNotNone(conn)
-        close_db_connection(conn)
-
-    def test_store_and_fetch_real_data(self):
-        """Test storing and fetching real BTC/USDT data from the database."""
-        symbol = 'BTC/USDT'
-        exchange = bybit()
-        since = exchange.parse8601(f"{datetime.now().strftime('%Y-%m-%d')}T00:00:00Z")
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', since=since, limit=5)
-        
-        test_data = pd.DataFrame(ohlcv, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
-        test_data['Date'] = pd.to_datetime(test_data['Timestamp'], unit='ms')
-        test_data = test_data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-        
-        conn = create_db_connection('test.db')
-        store_data_to_db(conn, test_data, 'real_data')
-        fetched_data = fetch_historical_data(conn, 'real_data')
-        self.assertGreater(len(fetched_data), 0)
-        close_db_connection(conn)
-
-    def test_predict_price_with_real_data(self):
-        """Test the price prediction functionality using real BTC/USDT data."""
-        symbol = 'BTC/USDT'
-        exchange = bybit()
-        since = exchange.parse8601(f"{datetime.now().strftime('%Y-%m-%d')}T00:00:00Z")
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', since=since, limit=5)
-
-        test_data = pd.DataFrame(ohlcv, columns=['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
-        test_data['Date'] = pd.to_datetime(test_data['Timestamp'], unit='ms')
-        test_data = test_data[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-    
-        # Use the detailed `predict_price` function
-        future_price, trend, time_estimate, actual_train, predicted_train = predict_price(test_data)
-    
-        # Assertions to ensure the prediction works and no unexpected None values are returned
-        self.assertIsNotNone(future_price)
-        self.assertIsNotNone(trend)
-        self.assertIsNotNone(time_estimate)
-        self.assertEqual(len(actual_train), len(predicted_train))
-
-        # Log the test results
-        logging.info(f"Future Price Prediction: {future_price}")
-        logging.info(f"Trend Analysis: {trend}")
-        logging.info(f"Estimated Time to Reach Predicted Price: {time_estimate}")
+    except Exception as e:
+        logging.error(f"Error in main execution: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+            logging.info("Database connection closed.")
 
 if __name__ == "__main__":
     main()
-    unittest.main()

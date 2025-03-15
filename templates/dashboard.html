@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Dashboard</title>
+</head>
+<body>
+    <h1>Trading Dashboard</h1>
+    <p>Here are the moving averages for the stock:</p>
+    <img src="{{ url_for('static', filename='moving_averages.png') }}" alt="Moving Averages">
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trade Dashboard</title>
+</head>
+<body>
+    <h1>Trade Dashboard</h1>
+    {% if data_available %}
+        <p>Visualizations have been generated successfully!</p>
+        <img src="/static/moving_averages.png" alt="Moving Averages">
+    {% else %}
+        <p>No data available to display.</p>
+    {% endif %}
+</body>
+</html>

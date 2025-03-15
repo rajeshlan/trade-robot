@@ -1,0 +1,196 @@
+2024-12-28 16:43:47,176 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2024-12-28 16:43:47,176 - INFO - API credentials loaded successfully.
+2024-12-28 16:43:47,176 - INFO - Creating exchange instance...
+2024-12-28 16:43:47,176 - INFO - Starting system time synchronization...
+2024-12-28 16:43:47,176 - INFO - Attempt 1 of 3.
+2024-12-28 16:43:47,246 - INFO - System time synchronized: 2024-12-28 11:13:47.216057+00:00 using server pool.ntp.org
+2024-12-28 16:43:47,566 - INFO - Server time: 1735384427527, Local time: 1735384427535.8193, Difference: -8.8193359375 ms
+2024-12-28 16:43:47,566 - INFO - Exchange instance created.
+2024-12-28 16:43:47,566 - INFO - Fetching markets (attempt 1)...
+2024-12-28 16:43:51,370 - INFO - Markets fetched successfully.
+2024-12-28 16:43:51,370 - INFO - Setting leverage for BTC/USDT:USDT to 80...
+2024-12-28 16:43:51,594 - ERROR - An error occurred while setting leverage: bybit {"retCode":110043,"retMsg":"leverage not modified","result":{},"retExtInfo":{},"time":1735384431555}
+2024-12-28 16:52:52,544 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2024-12-28 16:52:52,544 - INFO - API credentials loaded successfully.
+2024-12-28 16:52:52,544 - INFO - Creating exchange instance...
+2024-12-28 16:52:52,544 - INFO - Starting system time synchronization...
+2024-12-28 16:52:52,544 - INFO - Attempt 1 of 3.
+2024-12-28 16:52:57,568 - WARNING - Attempt 1 failed for server pool.ntp.org: No response received from pool.ntp.org.
+2024-12-28 16:52:57,646 - INFO - System time synchronized: 2024-12-28 11:22:57.610842+00:00 using server time.google.com
+2024-12-28 16:52:57,981 - INFO - Server time: 1735384977945, Local time: 1735384977945.0388, Difference: -0.038818359375 ms
+2024-12-28 16:52:57,981 - INFO - Exchange instance created.
+2024-12-28 16:52:57,981 - INFO - Fetching markets (attempt 1)...
+2024-12-28 16:53:01,677 - INFO - Markets fetched successfully.
+2024-12-28 16:53:01,678 - INFO - Setting leverage for BTC/USDT:USDT to 100...
+2024-12-28 16:53:01,898 - INFO - Leverage for BTC/USDT:USDT set to 100.
+2025-01-15 17:51:13,124 - ERROR - Error calculating indicators: 'NoneType' object is not subscriptable
+2025-01-15 17:51:13,128 - INFO - Fetched OHLCV data for BTCUSDT
+2025-01-15 17:51:13,128 - INFO - Exchange initialized successfully.
+2025-01-15 17:51:13,129 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-01-15 17:51:13,129 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2115522202320'>
+2025-01-15 17:51:13,130 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-19 19:30:10,388 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-02-19 19:30:10,388 - INFO - API credentials loaded successfully.
+2025-02-19 19:30:10,389 - INFO - Creating exchange instance...
+2025-02-19 19:30:10,389 - INFO - Starting system time synchronization...
+2025-02-19 19:30:10,389 - INFO - Attempt 1 of 3.
+2025-02-19 19:30:10,455 - INFO - System time synchronized: 2025-02-19 14:00:06.269759+00:00 using server pool.ntp.org
+2025-02-19 19:30:10,941 - INFO - Server time: 1739973606745, Local time: 1739973606755.0513, Difference: -10.05126953125 ms
+2025-02-19 19:30:10,941 - INFO - Exchange instance created.
+2025-02-19 19:30:10,941 - INFO - Fetching markets (attempt 1)...
+2025-02-19 19:30:11,650 - ERROR - Unexpected error in main execution: 'list' object has no attribute 'errors'
+2025-02-19 19:57:26,975 - ERROR - Error calculating indicators: 'NoneType' object is not subscriptable
+2025-02-19 19:57:26,978 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-19 19:57:26,978 - INFO - Exchange initialized successfully.
+2025-02-19 19:57:26,979 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-02-19 19:57:26,979 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='1330660854480'>
+2025-02-19 19:57:26,980 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-19 20:00:19,607 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-02-19 20:00:19,608 - INFO - API credentials loaded successfully.
+2025-02-19 20:00:19,714 - INFO - Time synchronized with time.google.com. Offset: -4.14888334274292 seconds
+2025-02-19 20:00:19,720 - INFO - Exchange initialized successfully.
+2025-02-19 20:00:24,171 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-19 20:00:24,179 - INFO - Indicators calculated successfully.
+2025-02-19 20:00:24,180 - INFO - Signals generated successfully.
+2025-02-19 20:00:24,180 - INFO -              timestamp     open     high      low    close    volume     SMA_20     SMA_50  SMA_200         EMA_9        RSI        MACD  MACD_signal      BB_upper  BB_middle      BB_lower         ATR  Buy_Signal  Sell_Signal
+95 2025-02-19 10:00:00  95913.2  96457.7  95912.5  96305.6  5005.323  95196.900  95580.784      NaN  95697.854331  60.940787  106.408101   -29.883942  96533.763811  95196.900  93860.036189  521.099264       False        False
+96 2025-02-19 11:00:00  96305.6  96419.6  96177.9  96407.9  1943.650  95241.390  95586.536      NaN  95839.863465  62.008079  161.937561     8.480358  96673.855609  95241.390  93808.924391  501.125929       False        False
+97 2025-02-19 12:00:00  96407.9  96489.7  96155.0  96157.2  2658.629  95319.255  95588.436      NaN  95903.330772  57.837176  183.599245    43.504136  96772.921259  95319.255  93865.588741  489.229378       False        False
+98 2025-02-19 13:00:00  96157.2  96459.6  96157.2  96265.3  1663.693  95429.045  95593.346      NaN  95975.724617  59.114232  207.101712    76.223651  96818.848200  95429.045  94039.241800  475.875057       False        False
+99 2025-02-19 14:00:00  96265.3  96359.3  95975.0  96324.4  1756.128  95551.140  95591.528      NaN  96045.459694  59.830577  227.869723   106.552865  96797.693651  95551.140  94304.586349  469.329719       False        False
+2025-02-20 16:02:04,414 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-02-20 16:02:04,414 - INFO - API credentials loaded successfully.
+2025-02-20 16:02:04,414 - INFO - Creating exchange instance...
+2025-02-20 16:02:04,414 - INFO - Starting system time synchronization...
+2025-02-20 16:02:04,414 - INFO - Attempt 1 of 3.
+2025-02-20 16:02:09,444 - WARNING - Attempt 1 failed for server pool.ntp.org: No response received from pool.ntp.org.
+2025-02-20 16:02:09,535 - INFO - System time synchronized: 2025-02-20 10:32:09.551204+00:00 using server time.google.com
+2025-02-20 16:02:09,740 - INFO - Server time: 1740047529758, Local time: 1740047529755.8662, Difference: 2.1337890625 ms
+2025-02-20 16:02:09,740 - INFO - Exchange instance created.
+2025-02-20 16:02:09,740 - INFO - Fetching markets (attempt 1)...
+2025-02-20 16:02:13,915 - INFO - Markets fetched successfully.
+2025-02-20 16:02:13,915 - INFO - Setting leverage for BTC/USDT:USDT to 100...
+2025-02-20 16:02:14,156 - ERROR - An error occurred while setting leverage: bybit {"retCode":110043,"retMsg":"leverage not modified","result":{},"retExtInfo":{},"time":1740047534175}
+2025-02-21 12:34:26,708 - ERROR - Error calculating indicators: 'NoneType' object is not subscriptable
+2025-02-21 12:34:26,711 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-21 12:34:26,711 - INFO - Exchange initialized successfully.
+2025-02-21 12:34:26,711 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-02-21 12:34:26,712 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2542680804048'>
+2025-02-21 12:34:26,712 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-21 12:43:19,083 - ERROR - Error calculating indicators: 'NoneType' object is not subscriptable
+2025-02-21 12:43:19,086 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-21 12:43:19,086 - INFO - Exchange initialized successfully.
+2025-02-21 12:43:19,087 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-02-21 12:43:19,087 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2483268624000'>
+2025-02-21 12:43:19,088 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-21 13:00:17,563 - ERROR - Error calculating indicators: 'NoneType' object is not subscriptable
+2025-02-21 13:00:17,566 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-21 13:00:17,566 - INFO - Exchange initialized successfully.
+2025-02-21 13:00:17,567 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-02-21 13:00:17,567 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2984917802624'>
+2025-02-21 13:00:17,568 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-21 13:03:12,603 - ERROR - Error calculating indicators: unsupported operand type(s) for -: 'float' and 'NoneType'
+2025-02-21 13:03:12,610 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-21 13:03:12,611 - INFO - Exchange initialized successfully.
+2025-02-21 13:03:12,611 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-02-21 13:03:12,612 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2427226168960'>
+2025-02-21 13:03:12,613 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-21 13:06:49,941 - INFO - Indicators calculated successfully.
+2025-02-21 13:06:49,943 - INFO - Fetched OHLCV data for BTCUSDT
+2025-02-21 13:06:49,943 - INFO - Exchange initialized successfully.
+2025-02-21 13:06:49,944 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-02-21 13:06:49,944 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2363346000528'>
+2025-02-21 13:06:49,945 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-02-26 17:47:31,795 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-02-26 17:47:31,795 - INFO - API credentials loaded successfully.
+2025-02-26 17:47:31,887 - INFO - Time synchronized with time.google.com. Offset: 0.013522148132324219 seconds
+2025-02-26 17:47:31,892 - INFO - Exchange initialized successfully.
+2025-02-26 17:47:32,119 - ERROR - Error fetching OHLCV data: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1740572252096}
+2025-02-26 17:47:32,119 - ERROR - Error running TradingBot: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1740572252096}
+2025-02-28 12:52:59,369 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-02-28 12:52:59,369 - INFO - API credentials loaded successfully.
+2025-02-28 12:52:59,481 - INFO - Time synchronized with time.google.com. Offset: 0.0030279159545898438 seconds
+2025-02-28 12:52:59,486 - INFO - Exchange initialized successfully.
+2025-03-09 21:32:19,278 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-09 21:32:19,278 - INFO - API credentials loaded successfully.
+2025-03-09 21:32:19,384 - INFO - Time synchronized with time.google.com. Offset: -1.429250717163086 seconds
+2025-03-09 21:32:19,390 - INFO - Exchange initialized successfully.
+2025-03-09 21:32:19,390 - INFO - Executing Buy Order for BTCUSDT...
+2025-03-09 21:32:19,757 - ERROR - Error executing trade decision (buy): bybit {"retCode":10002,"retMsg":"invalid request, please check your server timestamp or recv_window param. req_timestamp[1741536139390],server_timestamp[1741536138286],recv_window[5000]","result":{},"retExtInfo":{},"time":1741536138286}
+2025-03-09 21:32:20,187 - ERROR - Error fetching OHLCV data: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741536138719}
+2025-03-09 21:32:20,187 - ERROR - Error running TradingBot: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741536138719}
+2025-03-09 21:32:38,455 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-09 21:32:38,455 - INFO - API credentials loaded successfully.
+2025-03-09 21:32:38,541 - INFO - Time synchronized with time.google.com. Offset: 0.0003714561462402344 seconds
+2025-03-09 21:32:38,546 - INFO - Exchange initialized successfully.
+2025-03-09 21:32:38,546 - INFO - Executing Buy Order for BTCUSDT...
+2025-03-09 21:32:38,673 - ERROR - Error executing trade decision (buy): bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741536158637}
+2025-03-09 21:32:39,205 - ERROR - Error fetching OHLCV data: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741536159171}
+2025-03-09 21:32:39,205 - ERROR - Error running TradingBot: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741536159171}
+2025-03-10 01:24:28,054 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-10 01:24:28,055 - INFO - API credentials loaded successfully.
+2025-03-10 01:24:28,295 - INFO - Time synchronized with time.google.com. Offset: 0.0717620849609375 seconds
+2025-03-10 01:24:28,300 - INFO - Exchange initialized successfully.
+2025-03-10 01:24:28,300 - INFO - Executing Buy Order for BTCUSDT...
+2025-03-10 01:24:28,876 - ERROR - Error executing trade decision (buy): bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741550068852}
+2025-03-10 01:24:29,172 - ERROR - Error fetching OHLCV data: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741550069164}
+2025-03-10 01:24:29,172 - ERROR - Error running TradingBot: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741550069164}
+2025-03-11 13:08:09,420 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-11 13:08:09,421 - INFO - API credentials loaded successfully.
+2025-03-11 13:08:09,421 - INFO - Creating exchange instance...
+2025-03-11 13:08:09,421 - INFO - Starting system time synchronization...
+2025-03-11 13:08:09,421 - INFO - Attempt 1 of 3.
+2025-03-11 13:08:09,653 - INFO - System time synchronized: 2025-03-11 07:38:09.972789+00:00 using server pool.ntp.org
+2025-03-11 13:08:10,007 - INFO - Server time: 1741678690392, Local time: 1741678690326.7554, Difference: 65.24462890625 ms
+2025-03-11 13:08:10,007 - INFO - Exchange instance created.
+2025-03-11 13:08:10,007 - INFO - Fetching markets (attempt 1)...
+2025-03-11 13:08:10,303 - ERROR - Unexpected error in main execution: 'list' object has no attribute 'errors'
+2025-03-11 13:23:17,765 - INFO - Indicators calculated successfully.
+2025-03-11 13:23:17,767 - INFO - Fetched OHLCV data for BTCUSDT
+2025-03-11 13:23:17,768 - INFO - Exchange initialized successfully.
+2025-03-11 13:23:17,769 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-03-11 13:23:17,769 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2487078940896'>
+2025-03-11 13:23:17,770 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-03-11 13:26:42,886 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-11 13:26:42,886 - INFO - API credentials loaded successfully.
+2025-03-11 13:26:42,968 - INFO - Time synchronized with time.google.com. Offset: 0.437896728515625 seconds
+2025-03-11 13:26:42,973 - INFO - Exchange initialized successfully.
+2025-03-11 13:26:42,973 - INFO - Executing Buy Order for BTCUSDT...
+2025-03-11 13:26:43,248 - ERROR - Error executing trade decision (buy): bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741679803643}; You might also need to ensure the address is whitelisted
+2025-03-11 13:26:43,617 - ERROR - Error fetching OHLCV data: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741679804012}; You might also need to ensure the address is whitelisted
+2025-03-11 13:26:43,617 - ERROR - Error running TradingBot: bybit {"retCode":33004,"retMsg":"Your api key has expired.","result":{},"retExtInfo":{},"time":1741679804012}; You might also need to ensure the address is whitelisted
+2025-03-11 13:45:21,251 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-11 13:45:21,251 - INFO - API credentials loaded successfully.
+2025-03-11 13:45:21,251 - INFO - Creating exchange instance...
+2025-03-11 13:45:21,251 - INFO - Starting system time synchronization...
+2025-03-11 13:45:21,252 - INFO - Attempt 1 of 3.
+2025-03-11 13:45:21,328 - INFO - System time synchronized: 2025-03-11 08:15:21.751040+00:00 using server pool.ntp.org
+2025-03-11 13:45:21,593 - INFO - Server time: 1741680921997, Local time: 1741680922015.6274, Difference: -18.62744140625 ms
+2025-03-11 13:45:21,594 - INFO - Exchange instance created.
+2025-03-11 13:45:21,594 - INFO - Fetching markets (attempt 1)...
+2025-03-11 13:45:24,431 - INFO - Markets fetched successfully.
+2025-03-11 13:45:24,432 - INFO - Setting leverage for BTC/USDT:USDT to 100...
+2025-03-11 13:45:24,674 - ERROR - An error occurred while setting leverage: bybit {"retCode":110043,"retMsg":"leverage not modified","result":{},"retExtInfo":{},"time":1741680925078}; You might also need to ensure the address is whitelisted
+2025-03-11 13:55:15,728 - INFO - Indicators calculated successfully.
+2025-03-11 13:55:15,730 - INFO - Fetched OHLCV data for BTCUSDT
+2025-03-11 13:55:15,730 - INFO - Exchange initialized successfully.
+2025-03-11 13:55:15,731 - INFO - Placing buy order for BTCUSDT at 50000...
+2025-03-11 13:55:15,731 - INFO - Order placed successfully: <MagicMock name='bybit().create_market_buy_order()' id='2387970404576'>
+2025-03-11 13:55:15,732 - INFO - Time synchronized with time.google.com. Offset: 0.5 seconds
+2025-03-11 13:56:32,360 - INFO - .env file loaded successfully from D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env
+2025-03-11 13:56:32,361 - INFO - API credentials loaded successfully.
+2025-03-11 13:56:32,447 - INFO - Time synchronized with time.google.com. Offset: 0.452392578125 seconds
+2025-03-11 13:56:32,452 - INFO - Exchange initialized successfully.
+2025-03-11 13:56:32,452 - INFO - Executing Buy Order for BTCUSDT...
+2025-03-11 13:56:35,494 - ERROR - Error executing trade decision (buy): bybit {"retCode":10029,"retMsg":"The requested symbol is not whitelisted.","result":{},"retExtInfo":{},"time":1741681595904}; You might also need to ensure the address is whitelisted
+2025-03-11 13:56:35,597 - INFO - Fetched OHLCV data for BTCUSDT
+2025-03-11 13:56:35,604 - INFO - Indicators calculated successfully.
+2025-03-11 13:56:35,605 - INFO - Signals generated successfully.
+2025-03-11 13:56:35,605 - INFO -              timestamp     open     high      low    close    volume     SMA_20     SMA_50  ...        MACD  MACD_signal      BB_upper  BB_middle      BB_lower          ATR  Buy_Signal  Sell_Signal
+95 2025-03-11 04:00:00  79486.6  80212.4  79406.1  79708.0  4709.872  79936.985  81954.610  ... -853.111182 -1015.404243  83307.272421  79936.985  76566.697579  1291.917928       False        False
+96 2025-03-11 05:00:00  79708.0  80466.0  79664.8  80215.2  3781.258  79825.270  81837.314  ... -723.721825  -957.067760  82997.312044  79825.270  76653.227956  1256.838116       False        False
+97 2025-03-11 06:00:00  80215.2  80496.0  80069.0  80070.3  2921.895  79717.325  81718.252  ... -625.659830  -890.786174  82695.827021  79717.325  76738.822979  1197.519165       False        False
+98 2025-03-11 07:00:00  80070.3  80579.4  80053.7  80391.6  2880.067  79559.810  81606.236  ... -516.069835  -815.842906  81996.546538  79559.810  77123.073462  1149.498405       False        False
+99 2025-03-11 08:00:00  80391.6  80876.0  80282.8  80852.7  2638.017  79441.825  81505.988  ... -387.544685  -730.183262  81325.447383  79441.825  77558.202617  1109.736912       False        False
+
+[5 rows x 19 columns]

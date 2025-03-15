@@ -1,15 +1,25 @@
+#python trading\portfolio_management.py
+
 import logging
 import pandas as pd
 import ccxt
 import numpy as np
 import gym
 from stable_baselines3 import PPO
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from sklearn.neural_network import MLPRegressor
 from scipy.optimize import minimize
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingRegressor
 from transformers import pipeline
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv(dotenv_path='D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env')
+
+# Bybit API credentials
+bybit_api_key = os.getenv("BYBIT_API_KEY")
+bybit_api_secret = os.getenv("BYBIT_API_SECRET")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,22 +31,58 @@ class TradingEnv(gym.Env):
         self.asset_data = asset_data
         self.balance = initial_balance
         self.current_step = 0
+        self.done = False
+
+        # Observation space: Portfolio value, step count, and asset price
+        self.observation_space = gym.spaces.Box(low=0, high=np.inf, shape=(2,), dtype=np.float32)
+
+        # Action space: 0 = Hold, 1 = Buy, 2 = Sell
+        self.action_space = gym.spaces.Discrete(3)
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        self.current_step = 0
+        self.balance = self.initial_balance
+        self.done = False
+
+        obs = self._next_observation()
+        return obs, {}
 
     def step(self, action):
         self.current_step += 1
-        reward = self._calculate_reward(action)
-        return self.asset_data[self.current_step], reward, self._done(), {}
 
-    def reset(self):
-        self.balance = 1000
-        self.current_step = 0
-        return self.asset_data[self.current_step]
+        # Check if the step is out of data range
+        if self.current_step >= len(self.asset_data) - 1:
+            self.done = True
+
+        reward = self._calculate_reward(action)
+        obs = self._next_observation()
+
+        return obs, reward, self.done, False, {}
 
     def _calculate_reward(self, action):
-        return np.sum(action * self.asset_data[self.current_step])
+        """Simple reward function: Increase balance if action was profitable."""
+        current_price = self.asset_data[self.current_step]
+        reward = 0
 
-    def _done(self):
-        return self.current_step >= len(self.asset_data) - 1
+        if action == 1:  # Buy
+            self.balance -= current_price  # Deduct from balance
+        elif action == 2:  # Sell
+            self.balance += current_price  # Add to balance
+
+        # Reward = current balance as a measure of performance
+        return self.balance / self.initial_balance
+
+    def _next_observation(self):
+        """Returns a normalized observation"""
+        current_price = self.asset_data[self.current_step]
+        obs = np.array([self.balance, current_price], dtype=np.float32)
+
+        return obs
+
+    def render(self, mode='human'):
+        print(f'Step: {self.current_step}, Balance: {self.balance}, Price: {self.asset_data[self.current_step]}')
+
 
 # Training the RL agent
 def train_rl_agent(env):
@@ -56,9 +102,13 @@ def optimize_portfolio_with_rl(env, model):
     return actions[-1]  # Return the last action taken
 
 # Sentiment Analysis Functions
+def fetch_news_headlines(asset):
+    # Mock function for fetching news headlines
+    return [f"{asset} is performing well", f"Concerns over {asset}", f"{asset} market update"]
+
 def fetch_market_sentiment(asset):
     sentiment_analysis = pipeline("sentiment-analysis")
-    news_headlines = fetch_news_headlines(asset)  # Assume this function is implemented elsewhere
+    news_headlines = fetch_news_headlines(asset)
     sentiments = sentiment_analysis(news_headlines)
     positive_score = sum([1 for s in sentiments if s['label'] == 'POSITIVE'])
     negative_score = sum([1 for s in sentiments if s['label'] == 'NEGATIVE'])
@@ -95,11 +145,7 @@ def optimize_portfolio(returns, cov_matrix, risk_free_rate=0.01):
     return result.x
 
 def build_portfolio_model(input_dim):
-    model = Sequential()
-    model.add(Dense(64, input_dim=input_dim, activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(1, activation='linear'))
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    model = MLPRegressor(hidden_layer_sizes=(64, 32), activation='relu', solver='adam', max_iter=500)
     return model
 
 def train_price_prediction_model(asset_prices):
@@ -115,8 +161,8 @@ def train_price_prediction_model(asset_prices):
 
 # Bybit Exchange Functions
 exchange = ccxt.bybit({
-    'apiKey': '___',
-    'secret': '___',
+    'apiKey': bybit_api_key,
+    'secret': bybit_api_secret,
     'enableRateLimit': True,
 })
 
@@ -200,15 +246,15 @@ def main():
     portfolio = pd.DataFrame(portfolio_data)
     current_prices = fetch_current_prices(portfolio['asset'].tolist())
     portfolio['value'] = portfolio.apply(lambda row: row['quantity'] * (current_prices.get(row['asset'], 0)), axis=1)
-    
+
     env = TradingEnv(portfolio['value'].values)
     model = train_rl_agent(env)
-    
+
     # Optimize portfolio based on RL
     optimized_weights = optimize_portfolio_with_rl(env, model)
     portfolio['weight'] = optimized_weights
     adjust_portfolio_based_on_sentiment(portfolio)
-    
+
     # Fetch price data for price prediction model training
     price_data = pd.DataFrame()  # Assume this is filled with historical prices
     price_model = train_price_prediction_model(price_data)

@@ -1,0 +1,83 @@
+2024-12-18 13:07:00,941 - INFO - Starting data monitoring process...
+2024-12-18 13:07:00,946 - INFO - Data fetched successfully. Generating visualizations...
+2024-12-18 13:07:00,946 - INFO - Data Summary:
+2024-12-18 13:07:00,947 - INFO - Mean Close: 149.75
+2024-12-18 13:07:00,947 - INFO - Median Close: 149.75
+2024-12-18 13:07:00,947 - INFO - Standard Deviation: 28.94
+2024-12-18 13:07:00,947 - INFO - Min Close: 100.00
+2024-12-18 13:07:00,947 - INFO - Max Close: 199.50
+2024-12-18 13:07:00,976 - ERROR - Error generating correlation heatmap: Can't find a usable init.tcl in the following directories: 
+    C:/Users/New/AppData/Local/Programs/Python/Python313/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/library C:/Users/New/AppData/Local/Programs/library C:/Users/New/AppData/Local/Programs/tcl8.6.14/library C:/Users/New/AppData/Local/tcl8.6.14/library
+
+
+
+This probably means that Tcl wasn't installed properly.
+
+2024-12-18 13:07:00,979 - ERROR - Error generating moving averages plot: Can't find a usable init.tcl in the following directories: 
+    C:/Users/New/AppData/Local/Programs/Python/Python313/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/library C:/Users/New/AppData/Local/Programs/library C:/Users/New/AppData/Local/Programs/tcl8.6.14/library C:/Users/New/AppData/Local/tcl8.6.14/library
+
+
+
+This probably means that Tcl wasn't installed properly.
+
+2024-12-18 13:07:00,979 - INFO - Data monitoring process completed.
+2024-12-18 13:08:26,170 - INFO - Starting data monitoring process...
+2024-12-18 13:08:26,171 - INFO - Data fetched successfully. Generating visualizations...
+2024-12-18 13:08:26,172 - INFO - Data Summary:
+2024-12-18 13:08:26,172 - INFO - Mean Close: 149.75
+2024-12-18 13:08:26,172 - INFO - Median Close: 149.75
+2024-12-18 13:08:26,172 - INFO - Standard Deviation: 28.94
+2024-12-18 13:08:26,172 - INFO - Min Close: 100.00
+2024-12-18 13:08:26,172 - INFO - Max Close: 199.50
+2024-12-18 13:08:26,175 - INFO - Normalized Data Preview: 
+      close
+0 -1.719098
+1 -1.701821
+2 -1.684543
+3 -1.667266
+4 -1.649989
+2024-12-18 13:08:26,204 - ERROR - Error generating correlation heatmap: Can't find a usable init.tcl in the following directories: 
+    C:/Users/New/AppData/Local/Programs/Python/Python313/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/library C:/Users/New/AppData/Local/Programs/library C:/Users/New/AppData/Local/Programs/tcl8.6.14/library C:/Users/New/AppData/Local/tcl8.6.14/library
+
+
+
+This probably means that Tcl wasn't installed properly.
+
+2024-12-18 13:08:26,207 - ERROR - Error generating moving averages plot: Can't find a usable init.tcl in the following directories: 
+    C:/Users/New/AppData/Local/Programs/Python/Python313/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/library C:/Users/New/AppData/Local/Programs/library C:/Users/New/AppData/Local/Programs/tcl8.6.14/library C:/Users/New/AppData/Local/tcl8.6.14/library
+
+
+
+This probably means that Tcl wasn't installed properly.
+
+2024-12-18 13:08:26,207 - INFO - Data monitoring process completed.
+2024-12-18 13:46:41,374 - INFO - Starting data monitoring process...
+2024-12-18 13:46:41,375 - INFO - Data fetched successfully. Generating visualizations...
+2024-12-18 13:46:41,375 - INFO - Data Summary:
+2024-12-18 13:46:41,375 - INFO - Mean Close: 149.75
+2024-12-18 13:46:41,375 - INFO - Median Close: 149.75
+2024-12-18 13:46:41,375 - INFO - Standard Deviation: 28.94
+2024-12-18 13:46:41,375 - INFO - Min Close: 100.00
+2024-12-18 13:46:41,375 - INFO - Max Close: 199.50
+2024-12-18 13:46:41,379 - INFO - Normalized Data Preview: 
+      close
+0 -1.719098
+1 -1.701821
+2 -1.684543
+3 -1.667266
+4 -1.649989
+2024-12-18 13:46:41,405 - ERROR - Error generating correlation heatmap: Can't find a usable init.tcl in the following directories: 
+    C:/Users/New/AppData/Local/Programs/Python/Python313/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/library C:/Users/New/AppData/Local/Programs/library C:/Users/New/AppData/Local/Programs/tcl8.6.14/library C:/Users/New/AppData/Local/tcl8.6.14/library
+
+
+
+This probably means that Tcl wasn't installed properly.
+
+2024-12-18 13:46:41,408 - ERROR - Error generating moving averages plot: Can't find a usable init.tcl in the following directories: 
+    C:/Users/New/AppData/Local/Programs/Python/Python313/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/lib/tcl8.6 C:/Users/New/AppData/Local/Programs/Python/library C:/Users/New/AppData/Local/Programs/library C:/Users/New/AppData/Local/Programs/tcl8.6.14/library C:/Users/New/AppData/Local/tcl8.6.14/library
+
+
+
+This probably means that Tcl wasn't installed properly.
+
+2024-12-18 13:46:41,408 - INFO - Data monitoring process completed.

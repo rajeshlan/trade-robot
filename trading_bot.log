@@ -1,0 +1,13 @@
+2025-03-11 13:49:04,864 - INFO - Starting script execution...
+2025-03-11 13:49:04,869 - INFO - Fetching historical data for BTC/USDT...
+2025-03-11 13:49:07,533 - INFO - Feature engineering completed. Prepared data size: 181
+2025-03-11 13:49:07,618 - INFO - Model trained with 144 samples.
+2025-03-11 13:49:07,624 - INFO - Model evaluation completed. MSE: 0.001401
+2025-03-11 13:49:07,625 - INFO - Starting backtest...
+2025-03-11 13:49:07,632 - INFO - Backtest completed. Final strategy returns: 3.216087
+2025-03-11 13:49:07,632 - INFO - Final market returns: 1.407827
+2025-03-11 13:49:07,722 - INFO - Current price: 80716.560000
+2025-03-11 13:49:07,728 - INFO - Predicted returns: 0.011101
+2025-03-11 13:49:07,728 - INFO - Placing a mock buy order...
+2025-03-11 13:49:07,733 - ERROR - Error in example usage: bybit requires "apiKey" credential
+2025-03-11 13:49:07,734 - ERROR - Fatal error: bybit requires "apiKey" credential

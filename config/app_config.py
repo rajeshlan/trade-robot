@@ -1,61 +1,86 @@
+#python config\app_config.py
+
 import os
 import logging
 from dotenv import load_dotenv
 
-# Setup logging configuration
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Specify the full path to the .env file
-dotenv_path = r'F:\trading\improvised-code-of-the-pdf-GPT-main\config\API.env'
+# Define and Load .env file manually
+dotenv_path = os.path.join(os.path.dirname(__file__), "API.env")
 
-# Load environment variables from the specified .env file
-if load_dotenv(dotenv_path):
-    logging.info(f".env file loaded successfully from {dotenv_path}")
-else:
-    logging.error(f".env file not found or not loaded from {dotenv_path}")
+if not os.path.exists(dotenv_path):
+    logging.error(f".env file not found at {dotenv_path}")
+    exit(1)
 
-# Fetch API keys and credentials
-API_KEY = os.getenv('API_KEY')
-API_SECRET = os.getenv('API_SECRET')
-DB_FILE = 'trading_bot.db'
-TRAILING_STOP_PERCENT = 0.02
-RISK_REWARD_RATIO = 2.0
-SMTP_SERVER = os.getenv('SMTP_SERVER')
-SMTP_PORT = os.getenv('SMTP_PORT')
-EMAIL_USER = os.getenv('EMAIL_USER')
-EMAIL_PASS = os.getenv('EMAIL_PASS')
-SENTIMENT_API_KEY = os.getenv('SENTIMENT_API_KEY', 'default_api_key')
-BYBIT_API_KEY = os.getenv('BYBIT_API_KEY', 'default_bybit_api_key')
-BYBIT_API_SECRET = os.getenv('BYBIT_API_SECRET', 'default_bybit_api_secret')
-BYBIT_API_KEY_1 = os.getenv('BYBIT_API_KEY_1', 'default_bybit_api_key_1')
-BYBIT_API_SECRET_1 = os.getenv('BYBIT_API_SECRET_1', 'default_bybit_api_secret_1')
-BYBIT_API_KEY_2 = os.getenv('BYBIT_API_KEY_2', 'default_bybit_api_key_2')
-BYBIT_API_SECRET_2 = os.getenv('BYBIT_API_SECRET_2', 'default_bybit_api_secret_2')
-TWITTER_BEARER_TOKEN = os.getenv('TWITTER_BEARER_TOKEN', 'default_twitter_bearer_token')
-TWITTER_API_KEY = os.getenv('TWITTER_API_KEY', 'default_twitter_api_key')
-TWITTER_API_SECRET_KEY = os.getenv('TWITTER_API_SECRET_KEY', 'default_twitter_api_secret_key')
-TWITTER_ACCESS_TOKEN = os.getenv('TWITTER_ACCESS_TOKEN', 'default_twitter_access_token')
-TWITTER_ACCESS_TOKEN_SECRET = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', 'default_twitter_access_token_secret')
+# Explicitly load .env file and override existing variables
+if not load_dotenv(dotenv_path, override=True):
+    logging.error(f"Failed to load .env file from {dotenv_path}")
+    exit(1)
 
-# Log the output of each loaded environment variable
-logging.info(f"API_KEY: {'Loaded' if API_KEY else 'Not Loaded'}")
-logging.info(f"API_SECRET: {'Loaded' if API_SECRET else 'Not Loaded'}")
-logging.info(f"Database file: {DB_FILE}")
-logging.info(f"Trailing Stop Percent: {TRAILING_STOP_PERCENT}")
-logging.info(f"Risk Reward Ratio: {RISK_REWARD_RATIO}")
-logging.info(f"SMTP Server: {'Loaded' if SMTP_SERVER else 'Not Loaded'}")
-logging.info(f"SMTP Port: {'Loaded' if SMTP_PORT else 'Not Loaded'}")
-logging.info(f"Email User: {'Loaded' if EMAIL_USER else 'Not Loaded'}")
-logging.info(f"Email Pass: {'Loaded' if EMAIL_PASS else 'Not Loaded'}")
-logging.info(f"Sentiment API Key: {SENTIMENT_API_KEY}")
-logging.info(f"Bybit API Key: {'Loaded' if BYBIT_API_KEY else 'Not Loaded'}")
-logging.info(f"Bybit API Secret: {'Loaded' if BYBIT_API_SECRET else 'Not Loaded'}")
-logging.info(f"Bybit API Key 1: {'Loaded' if BYBIT_API_KEY_1 else 'Not Loaded'}")
-logging.info(f"Bybit API Secret 1: {'Loaded' if BYBIT_API_SECRET_1 else 'Not Loaded'}")
-logging.info(f"Bybit API Key 2: {'Loaded' if BYBIT_API_KEY_2 else 'Not Loaded'}")
-logging.info(f"Bybit API Secret 2: {'Loaded' if BYBIT_API_SECRET_2 else 'Not Loaded'}")
-logging.info(f"Twitter Bearer Token: {'Loaded' if TWITTER_BEARER_TOKEN else 'Not Loaded'}")
-logging.info(f"Twitter API Key: {'Loaded' if TWITTER_API_KEY else 'Not Loaded'}")
-logging.info(f"Twitter API Secret Key: {'Loaded' if TWITTER_API_SECRET_KEY else 'Not Loaded'}")
-logging.info(f"Twitter Access Token: {'Loaded' if TWITTER_ACCESS_TOKEN else 'Not Loaded'}")
-logging.info(f"Twitter Access Token Secret: {'Loaded' if TWITTER_ACCESS_TOKEN_SECRET else 'Not Loaded'}")
+# Debugging: Print all loaded environment variables
+logging.info(f"Loaded .env file from {dotenv_path}")
+
+def mask_sensitive(value):
+    """Mask sensitive values, showing only first and last characters."""
+    if value and len(value) > 4:
+        return value[0] + "*" * (len(value) - 2) + value[-1]
+    return value
+
+def safe_cast(value, to_type, default=None, key=None):
+    """Safely cast value with validation."""
+    try:
+        result = to_type(value)
+        if key == 'TRAILING_STOP_PERCENT' and not (0 <= result <= 1):
+            raise ValueError("Value must be between 0 and 1")
+        return result
+    except (ValueError, TypeError) as e:
+        logging.warning(f"Invalid {key}: {value}. Error: {e}. Using default: {default}")
+        return default
+
+def get_env_var(key, default=None, required=False):
+    """Fetch environment variable, enforcing required fields."""
+    value = os.getenv(key, default)
+    if required and not value:
+        logging.error(f"Critical error: {key} is not set.")
+        exit(1)
+    return value
+
+# API Configuration
+API_KEY = get_env_var('API_KEY', required=True)
+API_SECRET = get_env_var('API_SECRET', required=True)
+
+# Trading Parameters
+TRAILING_STOP_PERCENT = safe_cast(get_env_var('TRAILING_STOP_PERCENT', 0.02), float, 0.02, 'TRAILING_STOP_PERCENT')
+RISK_REWARD_RATIO = safe_cast(get_env_var('RISK_REWARD_RATIO', 2.0), float, 2.0)
+
+# Email Configuration
+SMTP_SERVER = get_env_var('SMTP_SERVER', required=True)
+SMTP_PORT = safe_cast(get_env_var('SMTP_PORT', required=True), int)
+EMAIL_USER = get_env_var('EMAIL_USER', required=True)
+EMAIL_PASS = get_env_var('EMAIL_PASS', required=True)
+
+# Bybit API Keys
+BYBIT_API_KEYS = {
+    f"key_set_{i}": {
+        "key": get_env_var(f"BYBIT_API_KEY_{i}", required=True),
+        "secret": get_env_var(f"BYBIT_API_SECRET_{i}", required=True)
+    } for i in range(1, 3)
+}
+
+# Twitter Credentials
+TWITTER_CREDENTIALS = {
+    "bearer_token": get_env_var('TWITTER_BEARER_TOKEN', required=True),
+    "api_key": get_env_var('TWITTER_API_KEY', required=True),
+    "api_secret_key": get_env_var('TWITTER_API_SECRET_KEY', required=True),
+    "access_token": get_env_var('TWITTER_ACCESS_TOKEN', required=True),
+    "access_token_secret": get_env_var('TWITTER_ACCESS_TOKEN_SECRET', required=True)
+}
+
+# Log Configuration Summary
+logging.info("Configuration Summary:")
+logging.info(f"API_KEY: {mask_sensitive(API_KEY)}")
+logging.info(f"SMTP_SERVER: {SMTP_SERVER}")
+logging.info(f"Bybit API Keys: {BYBIT_API_KEYS}")
+logging.info(f"Twitter Credentials: {mask_sensitive(str(TWITTER_CREDENTIALS))}") 

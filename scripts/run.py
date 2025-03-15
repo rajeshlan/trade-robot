@@ -1,3 +1,5 @@
+## python scripts\run.py (need checking as it shows TradingBot.__init__() missing 1 required positional argument: 'api_secret')
+
 import os
 import sys
 import time

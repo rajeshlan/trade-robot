@@ -1,10 +1,32 @@
+# python exchanges\test_bybit_api.py
+
 import ccxt
 import logging
 import os
 import pandas as pd
 from sklearn.linear_model import LinearRegression
+from dotenv import load_dotenv  # To load environment variables from .env file
 
+# Load environment variables from the specific .env file path
+load_dotenv(dotenv_path=r'D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env')
+
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Ensure that the API keys are loaded from environment variables
+api_key = os.getenv('BYBIT_API_KEY')
+api_secret = os.getenv('BYBIT_API_SECRET')
+api_key_1 = os.getenv('BYBIT_API_KEY_1')
+api_secret_1 = os.getenv('BYBIT_API_SECRET_1')
+api_key_2 = os.getenv('BYBIT_API_KEY_2')
+api_secret_2 = os.getenv('BYBIT_API_SECRET_2')
+
+# Verify that API keys are available
+if not api_key or not api_secret:
+    logging.error("API key and secret must be set as environment variables or provided in the script.")
+    exit(1)
+
+logging.info("API keys loaded successfully.")
 
 def fetch_historical_data(exchange, symbol, timeframe='1d', limit=100):
     """
@@ -52,19 +74,24 @@ def test_api_credentials(api_key, api_secret):
         balance = exchange.fetch_balance()
         logging.info("Successfully fetched balance: %s", balance)
 
-        # Fetch open orders
-        orders = exchange.fetch_open_orders()
-        logging.info("Successfully fetched open orders: %s", orders)
-
         # Fetch historical data and make a price prediction
         historical_data = fetch_historical_data(exchange, 'BTC/USDT', limit=50)
         predicted_price = predict_price(historical_data)
 
-        # Example: Place a test order with adjusted parameters
-        test_order = exchange.create_limit_buy_order('BTC/USDT', 0.0001, predicted_price)
-        logging.info("Test order placed successfully at predicted price: %s", test_order)
+        # Check if the predicted price is realistic
+        if predicted_price > 50000:  # Example threshold to prevent placing unreasonable orders
+            logging.warning("Predicted price is too high for this test, skipping order.")
+            return
 
-        return balance, orders
+        # Example: Place a test order with adjusted parameters
+        order_size = 0.0001  # Example order size
+        if balance['total']['USDT'] >= predicted_price * order_size:
+            test_order = exchange.create_limit_buy_order('BTC/USDT', order_size, predicted_price)
+            logging.info("Test order placed successfully at predicted price: %s", test_order)
+        else:
+            logging.warning("Insufficient balance for placing the order.")
+
+        return balance
 
     except ccxt.AuthenticationError as e:
         logging.error("Authentication error: %s", e)
@@ -80,13 +107,21 @@ def test_api_credentials(api_key, api_secret):
         raise e
 
 if __name__ == "__main__":
-    api_key = os.getenv('BYBIT_API_KEY', 'YOUR_API_KEY')
-    api_secret = os.getenv('BYBIT_API_SECRET', 'YOUR_API_SECRET')
-
+    # Check if API keys are available
     if not api_key or not api_secret:
         logging.error("API key and secret must be set as environment variables or provided in the script.")
-    else:
-        try:
-            test_api_credentials(api_key, api_secret)
-        except Exception as e:
-            logging.error("Failed to test API credentials: %s", e)
+        exit(1)
+
+    # Loop through each API key and secret combination
+    api_keys = [api_key, api_key_1, api_key_2]
+    api_secrets = [api_secret, api_secret_1, api_secret_2]
+
+    for api_key, api_secret in zip(api_keys, api_secrets):
+        if not api_key or not api_secret:
+            logging.error("API key and secret must be set as environment variables or provided in the script.")
+        else:
+            try:
+                logging.info(f"Testing API credentials for API key: {api_key[:5]}****")
+                test_api_credentials(api_key, api_secret)
+            except Exception as e:
+                logging.error(f"Failed to test API credentials for {api_key[:5]}****: %s", e)

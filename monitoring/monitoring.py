@@ -1,190 +1,115 @@
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+#python -m monitoring.monitoring
+
+import os
 import logging
-import smtplib
 import pandas as pd
-import requests
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-import numpy as np
-from data.fetch_data import fetch_data_from_exchange  # Ensure this is correctly set up
-from strategies.visualizations import generate_performance_heatmap, plot_moving_averages
+from datetime import datetime
+from strategies.visualizations import generate_heatmap, plot_moving_averages
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Set up logging
+LOG_FILE = "monitoring.log"
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-def monitor_and_visualize():
+def fetch_data():
     """
-    Monitor performance and generate visualizations.
+    Mock function to simulate fetching data from a database.
+    Replace with the actual database fetching logic.
     """
-    # Fetch the data
-    df = fetch_data_from_exchange()
+    # Example DataFrame for testing
+    data = {
+        'timestamp': pd.date_range(start='2024-01-01', periods=200, freq='D'),
+        'close': pd.Series(range(200)).apply(lambda x: 100 + x * 0.5)
+    }
+    return pd.DataFrame(data)
 
-    if df.empty:
-        logging.warning("No data fetched. Visualization skipped.")
-        return
-    
-    # Track performance metrics
-    track_performance_metrics(df)
-
-    # Generate visualizations
-    plot_moving_averages(df)
-    
-    # Example: Save a heatmap of performance for different pairs
-    performance_data = pd.DataFrame({
-        'Pair1': [1, 2, 3],
-        'Pair2': [4, 5, 6],
-        'Pair3': [7, 8, 9]
-    })
-    generate_performance_heatmap(performance_data)
+def create_output_dir():
+    """
+    Create the output directory if it does not exist.
+    """
+    output_dir = "static"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        logging.info(f"Created output directory: {output_dir}")
+    return output_dir
 
 def track_performance_metrics(df):
     """
-    Track and log basic performance metrics of the provided DataFrame.
+    Track and log performance metrics of the fetched data.
     
     Parameters:
-    - df (pd.DataFrame): DataFrame containing historical price data.
+    - df (pd.DataFrame): DataFrame containing price data.
     """
-    if df.empty:
-        logging.warning("DataFrame is empty. No metrics to track.")
+    # Check if the DataFrame is valid
+    if df is None or df.empty:
+        logging.warning("Invalid or empty data provided for performance tracking.")
         return
-    
-    # Calculate basic metrics
-    mean_close = df['close'].mean()
-    std_close = df['close'].std()
-    moving_average_10 = df['close'].rolling(window=10).mean()
-    moving_average_50 = df['close'].rolling(window=50).mean()
-    
-    # Log the metrics
-    logging.info(f"Mean Close Price: {mean_close}")
-    logging.info(f"Standard Deviation of Close Price: {std_close}")
-    logging.info("10-period Moving Average of Close Price:")
-    logging.info(moving_average_10.tail())
-    logging.info("50-period Moving Average of Close Price:")
-    logging.info(moving_average_50.tail())
-    
-    # Check for crossing moving averages (simple example of a trading signal)
-    if moving_average_10.iloc[-1] > moving_average_50.iloc[-1]:
-        send_notification("10-period moving average crossed above 50-period moving average.")
-    elif moving_average_10.iloc[-1] < moving_average_50.iloc[-1]:
-        send_notification("10-period moving average crossed below 50-period moving average.")
 
-    # Predict future prices
-    predict_future_prices(df['close'], periods=5)
+    # Check for required columns
+    required_columns = ['close']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        logging.error(f"Missing required columns: {missing_columns}")
+        return
 
-def predict_future_prices(close_prices, periods):
+    # Log basic statistics
+    logging.info(f"Data Summary:")
+    logging.info(f"Mean Close: {df['close'].mean():.2f}")
+    logging.info(f"Median Close: {df['close'].median():.2f}")
+    logging.info(f"Standard Deviation: {df['close'].std():.2f}")
+    logging.info(f"Min Close: {df['close'].min():.2f}")
+    logging.info(f"Max Close: {df['close'].max():.2f}")
+
+    # Normalize only numeric columns (excluding 'timestamp')
+    df_numeric = df.select_dtypes(include=[float, int])
+    normalized_df = (df_numeric - df_numeric.mean()) / df_numeric.std()
+    
+    # If you still want to work with the 'timestamp', you can handle it separately
+    logging.info(f"Normalized Data Preview: \n{normalized_df.head()}")
+
+
+def monitor_data():
     """
-    Predict future closing prices using linear regression.
-    
-    Parameters:
-    - close_prices (pd.Series): Series of closing prices.
-    - periods (int): Number of future periods to predict.
+    Main monitoring function that fetches data, generates visualizations,
+    and logs key metrics.
     """
-    # Prepare data for linear regression
-    X = np.arange(len(close_prices)).reshape(-1, 1)
-    y = close_prices.values.reshape(-1, 1)
-
-    # Fit linear regression model
-    model = LinearRegression()
-    model.fit(X, y)
-
-    # Predict future prices
-    future_X = np.arange(len(close_prices), len(close_prices) + periods).reshape(-1, 1)
-    predicted_prices = model.predict(future_X)
-
-    # Calculate trend direction
-    trend_direction = "unknown"
-    if predicted_prices[-1] > predicted_prices[0]:
-        trend_direction = "upward"
-    elif predicted_prices[-1] < predicted_prices[0]:
-        trend_direction = "downward"
-
-    # Calculate mean predicted price
-    predicted_mean = np.mean(predicted_prices)
-    
-    logging.info(f"Predicted Mean Closing Price: {predicted_mean:.2f}")
-    logging.info(f"Predicted price indicates a {trend_direction} trend.")
-
-    # Log detailed predictions
-    logging.info("Predicted future prices:")
-    for idx, price in enumerate(predicted_prices):
-        logging.info(f"Period {idx + 1}: {price[0]:.2f}")
-
-    # Optionally, send notifications based on the trend direction
-    if trend_direction == "upward":
-        send_notification("Predicted trend is upward.")
-    elif trend_direction == "downward":
-        send_notification("Predicted trend is downward.")
-        
-def generate_performance_heatmap(data, metrics=None):
-    """
-    Generate a heatmap showing performance metrics across different assets or strategies.
-
-    :param data: DataFrame containing performance data.
-    :param metrics: Specific performance metrics to include (optional).
-    """
-    if metrics:
-        data = data[metrics]
-    
-    # Plot heatmap
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(data, annot=True, cmap="viridis", linewidths=0.5)
-    plt.title("Performance Heatmap")
-    plt.show()
-
-def send_notification(message):
-    """
-    Send a notification with the provided message via email and Slack.
-    
-    Parameters:
-    - message (str): The notification message to be sent.
-    """
-    # Email configuration
-    sender_email = "your_email@example.com"
-    receiver_email = "receiver_email@example.com"
-    smtp_server = "smtp.example.com"
-    smtp_port = 587
-    smtp_user = "your_email@example.com"
-    smtp_password = "your_password"
-
-    # Slack webhook URL
-    slack_webhook_url = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
-
-    # Create the email
-    msg = MIMEMultipart()
-    msg['From'] = sender_email
-    msg['To'] = receiver_email
-    msg['Subject'] = "Trading Bot Notification"
-    msg.attach(MIMEText(message, 'plain'))
-
     try:
-        # Connect to the server and send the email
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(sender_email, receiver_email, msg.as_string())
-        server.close()
-        
-        logging.info("Email sent successfully.")
+        logging.info("Starting data monitoring process...")
+
+        # Fetch data
+        df = fetch_data()
+        if df.empty:
+            logging.warning("Fetched data is empty. Aborting visualization.")
+            return
+
+        logging.info("Data fetched successfully. Generating visualizations...")
+
+        # Track performance metrics
+        track_performance_metrics(df)
+
+        # Generate a heatmap for correlations
+        try:
+            generate_heatmap(df, normalize=True, title="Price Correlation Heatmap")
+            logging.info("Correlation heatmap generated successfully.")
+        except Exception as e:
+            logging.error(f"Error generating correlation heatmap: {e}")
+
+        # Plot moving averages
+        try:
+            output_dir = create_output_dir()
+            plot_moving_averages(df)
+            logging.info(f"Moving averages plot saved to {output_dir}.")
+        except Exception as e:
+            logging.error(f"Error generating moving averages plot: {e}")
+
     except Exception as e:
-        logging.error("Failed to send email: %s", str(e))
+        logging.error(f"Unexpected error during monitoring: {e}")
+    finally:
+        logging.info("Data monitoring process completed.")
 
-    slack_message = {
-        "text": message
-    }
-
-    try:
-        response = requests.post(slack_webhook_url, json=slack_message)
-        response.raise_for_status()
-        
-        logging.info("Slack notification sent successfully.")
-    except requests.exceptions.RequestException as e:
-        logging.error("Failed to send Slack notification: %s", str(e))
-    
-    # Log the message as well
-    logging.info(message)
-
-# Example usage
 if __name__ == "__main__":
-    monitor_and_visualize()
+    monitor_data()

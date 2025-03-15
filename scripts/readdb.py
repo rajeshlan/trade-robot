@@ -1,3 +1,5 @@
+#python scripts\readdb.py
+
 import sqlite3
 
 def read_db_file(db_file):
@@ -36,5 +38,5 @@ def read_db_file(db_file):
             conn.close()
 
 # Use raw string or double backslashes to avoid escape sequences
-db_file_path = r'F:\trading\improvised-code-of-the-pdf-GPT-main\test.db'  # Use raw string
+db_file_path = r'D:\RAJESH FOLDER\PROJECTS\trade-robot\trading_bot.db'  # Use raw string
 read_db_file(db_file_path)

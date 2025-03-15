@@ -1,14 +1,21 @@
+#python trading\Placing_Orders.py 
+
 import ccxt
+import numpy as np
 import pandas as pd
 import logging
 import os
 from dotenv import load_dotenv
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from sklearn.preprocessing import MinMaxScaler
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load environment variables from .env file
-load_dotenv(dotenv_path='F:\trading\improvised-code-of-the-pdf-GPT-main/API.env')
+load_dotenv(dotenv_path=r'D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env')
 
 def initialize_exchange(api_key: str, api_secret: str) -> ccxt.Exchange:
     """
@@ -18,20 +25,30 @@ def initialize_exchange(api_key: str, api_secret: str) -> ccxt.Exchange:
         exchange = ccxt.bybit({
             'apiKey': api_key,
             'secret': api_secret,
-            'enableRateLimit': True,
+            'enableRateLimit': True
         })
-        logging.info("Initialized Bybit exchange")
-        return exchange
+
+        # Test connection
+        try:
+            balance = exchange.fetch_balance()
+            logging.info(f"Connected to Bybit. Balance: {balance}")
+        except Exception as e:
+            logging.error(f"Error connecting to Bybit API: {e}")
+            raise  # Ensure failure stops execution
+
+        return exchange  # ✅ Fix: Ensure exchange is returned!
+
     except Exception as e:
-        logging.error("Failed to initialize exchange: %s", e)
-        raise
+        logging.error(f"Error initializing exchange: {e}")
+        raise  # Stop execution on failure
+
 
 def fetch_ohlcv(exchange: ccxt.Exchange, symbol: str, timeframe: str = '1h', limit: int = 100) -> pd.DataFrame:
     """
     Fetch OHLCV data.
     """
     try:
-        params = {'recvWindow': 30000}  # Increase recv_window to 30 seconds
+        params = {'category': 'linear'}  # Increase recv_window to 30 seconds
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit, params=params)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -46,7 +63,6 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     Calculate technical indicators for trading strategy.
     """
     try:
-        # Use smaller windows for SMA to ensure crossovers in the limited dataset
         df['SMA_10'] = df['close'].rolling(window=10).mean()
         df['SMA_30'] = df['close'].rolling(window=30).mean()
         logging.info("Calculated SMA_10 and SMA_30")
@@ -55,24 +71,77 @@ def calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         logging.error("Failed to calculate technical indicators: %s", e)
         raise
 
-from price_prediction import train_lstm, predict_price
+class LSTMModel(nn.Module):
+    """
+    PyTorch implementation of an LSTM model for time series prediction.
+    """
+    def __init__(self, input_size: int, hidden_layer_size: int, output_size: int):
+        super(LSTMModel, self).__init__()
+        self.lstm = nn.LSTM(input_size, hidden_layer_size, batch_first=True)
+        self.fc = nn.Linear(hidden_layer_size, output_size)
+
+    def forward(self, x):
+        lstm_out, _ = self.lstm(x)
+        predictions = self.fc(lstm_out[:, -1, :])
+        return predictions
+
+def train_lstm(df: pd.DataFrame) -> tuple:
+    """
+    Train the LSTM model on the historical data.
+    """
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(df[['close']].values)
+
+    X, y = [], []
+    for i in range(60, len(scaled_data)):
+        X.append(scaled_data[i-60:i, 0])
+        y.append(scaled_data[i, 0])
+    
+    X = torch.tensor(np.array(X)).float().view(-1, 60, 1)
+    y = torch.tensor(y).float().view(-1, 1)
+
+    model = LSTMModel(input_size=1, hidden_layer_size=50, output_size=1)
+    
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    
+    model.train()
+    for epoch in range(100):
+        optimizer.zero_grad()
+        output = model(X)
+        loss = criterion(output, y)
+        loss.backward()
+        optimizer.step()
+        logging.info(f"Epoch {epoch+1}/100, Loss: {loss.item()}")
+    
+    logging.info("Training completed")
+    return model, scaler
+
+def predict_price(df: pd.DataFrame, model, scaler) -> float:
+    """
+    Predict the price using the trained LSTM model.
+    """
+    scaled_data = scaler.transform(df[['close']].values)
+    input_data = torch.tensor(scaled_data[-60:]).float().view(1, 60, 1)
+    
+    model.eval()
+    with torch.no_grad():
+        prediction = model(input_data)
+    predicted_price = scaler.inverse_transform(prediction.cpu().numpy())
+    
+    logging.info(f"Predicted next price: {predicted_price[0][0]}")
+    return predicted_price[0][0]
 
 def define_trading_strategy(df: pd.DataFrame, model, scaler) -> pd.DataFrame:
-    """
-    Define the trading strategy based on technical indicators and predicted price.
-    """
     try:
         signals = ['hold']
         predicted_prices = []
 
-        # Iterate through the dataframe
         for i in range(1, len(df)):
-            # Predict future price
-            if i > 60:  # Ensuring we have enough data points
+            if i > 60:
                 predicted_price = predict_price(df.iloc[:i], model, scaler)
                 predicted_prices.append(predicted_price)
 
-                # Update signal logic with predicted price
                 if df['SMA_10'][i] > df['SMA_30'][i] and predicted_price > df['close'][i]:
                     signals.append('buy')
                 elif df['SMA_10'][i] < df['SMA_30'][i] and predicted_price < df['close'][i]:
@@ -91,18 +160,43 @@ def define_trading_strategy(df: pd.DataFrame, model, scaler) -> pd.DataFrame:
         logging.error("Failed to define trading strategy: %s", e)
         raise
 
-
-def place_order(exchange: ccxt.Exchange, symbol: str, order_type: str, side: str, amount: float, price=None):
+def manage_leverage(account_balance, risk_level, max_leverage, current_position):
     """
-    Place an order on the exchange.
+    Manage leverage dynamically based on account balance and risk level.
     """
     try:
+        leverage = account_balance * risk_level
+        leverage = min(leverage, max_leverage)
+
+        if current_position == 'long':
+            leverage *= 1.1
+        elif current_position == 'short':
+            leverage *= 0.9
+
+        logging.info(f"Calculated leverage: {leverage}")
+        return leverage
+    except Exception as e:
+        logging.error("Failed to manage leverage: %s", e)
+        raise
+
+def place_order(exchange: ccxt.Exchange, symbol: str, order_type: str, side: str, amount: float, price=None):
+    try:
+        try:
+            market = exchange.market(symbol)
+            min_amount = market['limits']['amount']['min']
+            if amount < min_amount:
+                raise ValueError(f"Amount {amount} is less than the minimum allowed {min_amount}")
+        except Exception as e:
+            logging.error("An error occurred while checking the minimum amount: %s", e)
+            raise
         if order_type == 'market':
             order = exchange.create_market_order(symbol, side, amount)
         elif order_type == 'limit':
             order = exchange.create_limit_order(symbol, side, amount, price)
         logging.info("Placed %s order for %s %s at %s", side, amount, symbol, price if price else 'market price')
         return order
+    except ValueError as ve:
+        logging.error(ve)
     except ccxt.InsufficientFunds as insf:
         logging.error("Insufficient funds: %s", insf)
     except ccxt.InvalidOrder as invord:
@@ -112,140 +206,49 @@ def place_order(exchange: ccxt.Exchange, symbol: str, order_type: str, side: str
     except ccxt.BaseError as e:
         logging.error("An error occurred: %s", e)
 
-def manage_leverage(exchange: ccxt.Exchange, symbol: str, amount: float, risk_percent: float):
-    """
-    Dynamically manage leverage based on account balance and risk management.
-    """
-    try:
-        balance = exchange.fetch_balance()
-        available_margin = balance['total']['USDT']
-        logging.info("Available margin: %s USDT", available_margin)
-        
-        # Calculate maximum allowable loss
-        max_loss = available_margin * risk_percent
-        
-        # Fetch ticker and leverage limit
-        ticker = exchange.fetch_ticker(symbol)
-        max_leverage = exchange.markets[symbol]['limits']['leverage']['max'] if symbol in exchange.markets else 1
-        
-        # Calculate maximum leverage
-        calculated_leverage = min(max_loss / (amount * ticker['last']), max_leverage)
-        
-        # Set the leverage on the exchange if within bounds
-        if 1 <= calculated_leverage <= max_leverage:
-            exchange.set_leverage(calculated_leverage, symbol)
-            logging.info("Dynamically set leverage to %.2f for %s based on risk management", calculated_leverage, symbol)
-        else:
-            logging.warning("Calculated leverage %.2f is out of bounds for %s. Using default leverage of 1.", calculated_leverage, symbol)
-            exchange.set_leverage(50, symbol)  # Set to default leverage of 1
-
-        return calculated_leverage
-    except KeyError as ke:
-        logging.error("Symbol %s not found in markets: %s", symbol, ke)
-        raise
-    except ccxt.BaseError as e:
-        logging.error("Failed to manage leverage: %s", e)
-        raise
-
-def place_order(exchange, symbol, order_type, side, amount, price=None):
-    try:
-        if order_type == 'limit':
-            order = exchange.create_order(symbol, order_type, side, amount, price)
-        elif order_type == 'market':
-            order = exchange.create_order(symbol, order_type, side, amount)
-        return order
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
-
-def place_order(exchange, side, price, symbol, amount):
-    try:
-        order = exchange.create_order(symbol, 'market', side, amount)
-        logging.info(f"Placed {side} order for {amount} {symbol} at {price}")
-        return order
-    except ccxt.NetworkError as e:
-        logging.error(f"Failed to place order: {e}")
-        raise
-
-def execute_trading_decision(signal):
-    api_key = 'your_api_key'
-    api_secret = 'your_api_secret'
-    exchange = ccxt.bybit({'apiKey': api_key, 'secret': api_secret})
-
-    if signal == 'buy':
-        place_order(exchange, 'BTCUSDT', 'market', 'buy', 0.01)
-    elif signal == 'sell':
-        place_order(exchange, 'BTCUSDT', 'market', 'sell', 0.01)
-
 def execute_trading_strategy(exchange: ccxt.Exchange, df: pd.DataFrame, symbol: str, amount: float, risk_percent: float):
-    """
-    Execute the trading strategy based on signals.
-    """
     try:
-        markets = exchange.load_markets()
-        market = exchange.market(symbol)
-
-        # Log market structure for debugging
-        logging.info("Market structure for %s: %s", symbol, market)
-
         for i in range(len(df)):
-            logging.info("Processing signal: %s at index %d", df['signal'][i], i)
             if df['signal'][i] in ['buy', 'sell']:
-                # Dynamically manage leverage before placing an order
-                manage_leverage(exchange, symbol, amount, risk_percent)
-                
+                account_balance = exchange.fetch_balance()['total']['BTC']
+                leverage = manage_leverage(account_balance, risk_percent, max_leverage=10, current_position='long')
+
                 if df['signal'][i] == 'buy':
-                    logging.info("Buy Signal - Placing Buy Order")
                     place_order(exchange, symbol, 'market', 'buy', amount)
                 elif df['signal'][i] == 'sell':
-                    logging.info("Sell Signal - Placing Sell Order")
                     place_order(exchange, symbol, 'market', 'sell', amount)
-
     except ccxt.BaseError as e:
         logging.error("An error occurred: %s", e)
         raise
 
 def main():
-    """
-    Main function to execute the trading strategy.
-    """
     try:
-        # Retrieve API keys and secrets from environment variables
         api_key = os.getenv('BYBIT_API_KEY')
         api_secret = os.getenv('BYBIT_API_SECRET')
 
         if not api_key or not api_secret:
             raise ValueError("BYBIT_API_KEY or BYBIT_API_SECRET environment variables are not set.")
 
-        symbol = 'BTCUSDT'  # Example symbol for derivative trading with leverage
-        amount = 0.001  # Example amount to trade
-        risk_percent = 0.01  # Risk 1% of the available margin per trade
+        account_balance = 1000  # Example account balance in USD
+        risk_level = 0.02  # Example risk level as a percentage
+        max_leverage = 10  # Example maximum leverage
 
-        # Initialize exchange
+        symbol = 'BTCUSD'
+        amount = 1
+        risk_percent = 0.02
+
         exchange = initialize_exchange(api_key, api_secret)
-        
-        # Fetch historical data
+
         df = fetch_ohlcv(exchange, symbol)
-        
-        # Train LSTM model on historical data
-        model, scaler = train_lstm(df)
-        
-        # Calculate technical indicators
         df = calculate_technical_indicators(df)
-        
-        # Define trading strategy
+
+        model, scaler = train_lstm(df)
+
         df = define_trading_strategy(df, model, scaler)
-        
-        # Execute trading strategy
+
         execute_trading_strategy(exchange, df, symbol, amount, risk_percent)
-                
-    except ccxt.NetworkError as e:
-        logging.error("A network error occurred: %s", e)
-    except ccxt.BaseError as e:
-        logging.error("An error occurred: %s", e)
-    except ValueError as e:
-        logging.error("Value error occurred: %s", e)
+    except Exception as e:
+        logging.error("An error occurred in the main execution: %s", e)
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

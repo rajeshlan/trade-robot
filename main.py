@@ -1,27 +1,35 @@
-from cmath import e
+#python main.py
+
 import logging
+import sys
 import os
 import ccxt
 from retrying import retry
 import pandas as pd
 import time
 from datetime import datetime
-from sympy import Order
 import ta
-import pandas as pd
-from database import fetch_historical_data
+from data.database import create_db_connection, fetch_historical_data, store_data_to_db
 import exchanges
-from fetch_data import get_historical_data, get_tweets, analyze_sentiment
-from risk_management import adjust_stop_loss_take_profit, calculate_stop_loss, calculate_take_profit, calculate_technical_indicators, detect_patterns, place_order_with_risk_management
-from trading_strategy import build_and_train_model, predict_prices, train_rl_model, rl_trading_decision, execute_trade
-from portfolio_management import calculate_returns, optimize_portfolio
-from tradingbot import execute_trading_decision
-import tradingbot
- # type: ignore
+from data.fetch_data import fetch_data_from_bybit, get_tweets, analyze_sentiment
+from risk_management.risk_management import (
+    calculate_technical_indicators,
+    calculate_rsi,
+    prepare_data_for_training,
+    train_model,
+    calculate_stop_loss,
+    calculate_take_profit,
+    calculate_position_size
+)
+from strategies.trading_strategy import build_and_train_model, predict_prices, train_rl_model, rl_trading_decision, execute_trade
+from trading.portfolio_management import calculate_returns, optimize_portfolio
+sys.path.append(os.path.join(os.path.dirname(__file__), 'trading'))
 
+# Set up logging for debugging and tracking
 def setup_logging():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Load API credentials from environment variables
 def load_api_credentials():
     api_key = os.getenv('BYBIT_API_KEY')
     api_secret = os.getenv('BYBIT_API_SECRET')
@@ -29,15 +37,17 @@ def load_api_credentials():
         raise ValueError("BYBIT_API_KEY or BYBIT_API_SECRET environment variables are not set.")
     return api_key, api_secret
 
+# Initialize the Bybit exchange using ccxt
 def initialize_exchange(api_key, api_secret):
     exchange = ccxt.bybit({
         'apiKey': api_key,
         'secret': api_secret,
         'enableRateLimit': True,
-    }) 
+    })
     logging.info("Initialized Bybit exchange")
     return exchange
 
+# Fetch OHLCV data with retry logic for reliability
 @retry(stop_max_attempt_number=3, wait_fixed=2000)
 def fetch_ohlcv_with_retry(exchange, symbol, timeframe='1h', limit=500):
     try:
@@ -50,6 +60,7 @@ def fetch_ohlcv_with_retry(exchange, symbol, timeframe='1h', limit=500):
         logging.error("Error fetching OHLCV data: %s", e)
         raise e
 
+# Calculate technical indicators using the ta library
 def calculate_indicators(df):
     try:
         df['SMA_50'] = ta.trend.sma_indicator(df['close'], window=50)
@@ -66,6 +77,7 @@ def calculate_indicators(df):
         logging.error("Error calculating indicators: %s", e)
         raise e
 
+# Define a simple moving average crossover trading strategy
 def trading_strategy(df, sma_short=50, sma_long=200):
     try:
         signals = ['hold']
@@ -83,6 +95,7 @@ def trading_strategy(df, sma_short=50, sma_long=200):
         logging.error("Error detecting signals: %s", e)
         raise e
 
+# Execute trades based on signals using ccxt
 def execute_trade(exchange, symbol, signal, amount=1):
     try:
         if signal == 'buy':
@@ -95,6 +108,7 @@ def execute_trade(exchange, symbol, signal, amount=1):
         logging.error(f"Error executing {signal} order: %s", e)
         raise e
 
+# Perform backtesting with historical data
 def perform_backtesting(exchange):
     try:
         df = fetch_ohlcv_with_retry(exchange, 'BTCUSDT', timeframe='1h', limit=500)
@@ -105,99 +119,154 @@ def perform_backtesting(exchange):
     except Exception as e:
         logging.error("Error during backtesting: %s", e)
 
-import logging
-import tradingbot  # Assuming tradingbot is imported from the appropriate module
+# Detect trading patterns in the data
+def detect_patterns(data):
+    """
+    Detects key trading patterns in historical price data.
+    Patterns: Moving Average Crossovers, Double Top/Bottom, Support/Resistance, Breakouts
+    """
+    required_columns = {'close', 'SMA_50', 'SMA_200', 'high', 'low', 'volume'}
+    if not required_columns.issubset(data.columns):
+        raise ValueError(f"Missing required columns: {required_columns - set(data.columns)}")
 
+    data['Golden_Cross'] = (data['SMA_50'] > data['SMA_200']) & (data['SMA_50'].shift(1) <= data['SMA_200'].shift(1))
+    data['Death_Cross'] = (data['SMA_50'] < data['SMA_200']) & (data['SMA_50'].shift(1) >= data['SMA_200'].shift(1))
+    data['Double_Top'] = (data['high'].shift(2) < data['high'].shift(1)) & (data['high'].shift(1) > data['high']) & (data['high'].shift(1) > data['high'].shift(3))
+    data['Double_Bottom'] = (data['low'].shift(2) > data['low'].shift(1)) & (data['low'].shift(1) < data['low']) & (data['low'].shift(1) < data['low'].shift(3))
+    data['Support_Level'] = data['low'].rolling(window=20).min()
+    data['Resistance_Level'] = data['high'].rolling(window=20).max()
+    data['Breakout_Up'] = (data['close'] > data['Resistance_Level']) & (data['volume'] > data['volume'].rolling(20).mean() * 1.5)
+    data['Breakout_Down'] = (data['close'] < data['Support_Level']) & (data['volume'] > data['volume'].rolling(20).mean() * 1.5)
+    pattern_columns = ['Golden_Cross', 'Death_Cross', 'Double_Top', 'Double_Bottom', 'Breakout_Up', 'Breakout_Down']
+    data[pattern_columns] = data[pattern_columns].fillna(False)
+    return data
+
+# Synchronize time with the exchange (placeholder)
+def synchronize_time(exchange):
+    """
+    Synchronize local time with the exchange server time.
+    Placeholder: assumes no offset; implement if needed.
+    """
+    time_offset = 0  # Replace with actual logic if required
+    return time_offset
+
+# Main execution logic
 def main():
-
-    tradingbot.initialize_exchange()
+    # Set up logging
+    setup_logging()
     
-    # Synchronize time (optional)
-    time_offset = tradingbot.synchronize_time()
+    # Load API credentials
+    api_key, api_secret = load_api_credentials()
+    
+    # Initialize exchange
+    exchange = initialize_exchange(api_key, api_secret)
+    
+    # Synchronize time
+    time_offset = synchronize_time(exchange)
     print(f"Time offset: {time_offset} seconds")
     
-    try:  # Adding try block here
-
-        # Fetch data
-        symbol = 'BTCUSDT'
-        timeframe = '1h'
-        limit = 100
-        df = tradingbot.fetch_data(symbol, timeframe, limit)
-        print(f"Fetched data:\n{df.head()}")
+    try:
+        # Fetch historical data
+        df = fetch_data_from_bybit('BTC/USDT:USDT', timeframe='1h', limit=500)
+        if not df.empty:
+            print(f"Historical data:\n{df.head()}")
         
         # Calculate indicators
-        df_with_indicators = tradingbot.calculate_indicators(df)
+        df_with_indicators = calculate_indicators(df)
         print(f"Data with indicators:\n{df_with_indicators.head()}")
-        
-        # Example usage of historical data and technical indicators
+
+        # Detect patterns
+        df_with_patterns = detect_patterns(df_with_indicators)
+        print(df_with_patterns[['Golden_Cross', 'Death_Cross', 'Double_Top', 'Double_Bottom', 'Breakout_Up', 'Breakout_Down']].tail())
+
+        # Fetch and analyze historical data
+        # Ensure data is available in the database before fetching
         symbol = 'BTCUSDT'
-        data = fetch_historical_data(exchanges, symbol)
+        df = fetch_data_from_bybit(symbol, timeframe='1h', limit=500)
+
+        if df.empty:
+            raise ValueError(f"No historical data fetched for {symbol}.")
+
+        # Store the fetched data into the database if the table does not exist
+        conn = create_db_connection()
+        store_data_to_db(conn, symbol, df)  # Ensure data is stored
+        conn.close()
+
+        # Now fetch data from the database after storing it
+        data = fetch_historical_data(symbol)
+        if data.empty:
+            raise ValueError(f"No data found in {symbol} table after storage.")
+
+        #Process the data
+        data = calculate_technical_indicators(data)
+        data = detect_patterns(data)
+
+
         data = calculate_technical_indicators(data)
         data = detect_patterns(data)
         
-        # Example: Determine current market conditions
+        # Risk management based on market conditions
         if data.iloc[-1]['SMA_50'] > data.iloc[-1]['SMA_200']:
-            stop_loss, take_profit = adjust_stop_loss_take_profit(data, data.iloc[-1]['close'])
-        elif data.iloc[-1]['SMA_50'] < data.iloc[-1]['SMA_200']:
-            stop_loss, take_profit = adjust_stop_loss_take_profit(data, data.iloc[-1]['close'])
-        else:
-            stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0, data)
+            stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0)
             take_profit = calculate_take_profit(data.iloc[-1]['close'], 1.0, stop_loss)
-        
-        # Example: Place order with dynamic SL and TP
-        #place_order_with_risk_management(exchanges, symbol, 'buy', 0.001, stop_loss, take_profit)
-    
+        elif data.iloc[-1]['SMA_50'] < data.iloc[-1]['SMA_200']:
+            stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0 )
+            take_profit = calculate_take_profit(data.iloc[-1]['close'], 1.0, stop_loss)
+        else:
+            stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0)
+            take_profit = calculate_take_profit(data.iloc[-1]['close'], 1.0, stop_loss)
+
+        # Fetch more data if needed
+        df = fetch_data_from_bybit('BTC/USDT:USDT', timeframe='1h', limit=500)
+        if not df.empty:
+            print(f"Historical data:\n{df.head()}")
+
+        # Train predictive model
+        model, scaler = build_and_train_model(df)
+
+        # Predict prices
+        predicted_prices = predict_prices(model, scaler, df)
+
+        # Sentiment analysis
+        api_key = '7V2oBo1LtvQ8MYkXnqYraiuDd'  # Replace with your actual key
+        api_secret = 'qVre858rgAGTWFCQPapdvx1bYYy0dDxnM6Nt2mFSZuAVHDnkL5'  # Replace with your actual secret
+        tweets = get_tweets(api_key, 'BTC')
+        sentiment_score = analyze_sentiment(tweets)
+
+        # Train RL model
+        rl_model = train_rl_model(df)
+
+        # Portfolio optimization
+        returns, cov_matrix = calculate_returns(df)
+        optimal_weights = optimize_portfolio(returns, cov_matrix)
+        print(f"Optimal asset allocation: {optimal_weights}")
+
+        # RL trading decision
+        obs = df.iloc[-1].values
+        rl_action = rl_trading_decision(rl_model, obs)
+
+        # Sentiment-based decision
+        if sentiment_score > 0.1:
+            decision = 'buy'
+        elif sentiment_score < -0.1:
+            decision = 'sell'
+        else:
+            decision = 'hold'
+
+        # Execute trading decision
+        execute_trade(exchange, symbol, decision)
+
     except ccxt.AuthenticationError as e:
-        logging.error("Authentication error: %s. Please check your API key and secret.", e)
+        logging.error("Authentication error: %s. Check your API key and secret.", e)
     except ccxt.NetworkError as e:
-        logging.error("Network error: %s. Please check your internet connection.", e)
+        logging.error("Network error: %s. Check your internet connection.", e)
     except ccxt.ExchangeError as e:
-        logging.error("Exchange error: %s. Please check the exchange status or API documentation.", e)
+        logging.error("Exchange error: %s. Check exchange status or API docs.", e)
     except ValueError as e:
         logging.error("ValueError: %s", e)
     except Exception as e:
-        logging.error("An unexpected error occurred: %s", e)
+        logging.error("Unexpected error: %s", e)
 
-# Fetch historical data
-df = get_historical_data('historical_data.csv')
-
-# Build and train predictive model
-model, scaler = build_and_train_model(df)
-
-# Predict prices
-predicted_prices = predict_prices(model, scaler, df)
-
-# Sentiment analysis
-api_key = 'your_twitter_api_key'
-api_secret = 'your_twitter_api_secret'
-tweets = get_tweets(api_key, api_secret, 'BTC')
-sentiment_score = analyze_sentiment(tweets)
-
-# RL model training
-rl_model = train_rl_model(df)
-
-# Portfolio optimization
-returns, cov_matrix = calculate_returns(df)
-optimal_weights = optimize_portfolio(returns, cov_matrix)
-print(f"Optimal asset allocation: {optimal_weights}")
-
-# Make trading decisions
-obs = df.iloc[-1].values  # Current observation
-rl_action = rl_trading_decision(rl_model, obs)
-
-if sentiment_score > 0.1:
-    decision = 'buy'
-elif sentiment_score < -0.1:
-    decision = 'sell'
-else:
-    decision = 'hold'
-
-# Execute trading decision
-execute_trading_decision(decision)
-
+# Entry point
 if __name__ == "__main__":
-    # Initialize logging
-    logging.basicConfig(level=logging.INFO)
-    
-    # Execute trading strategy
-    execute_trade()
+    main()
