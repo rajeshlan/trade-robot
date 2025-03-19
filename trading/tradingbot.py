@@ -31,6 +31,69 @@ class TradingBot:
         self.backoff_factor = backoff_factor
         self.exchange = None
         self.time_offset = 0  # Store time offset
+        self.initialize_exchange()  # ✅ Automatically initialize the exchange
+
+    def run(self, symbol="BTCUSDT", timeframe="1h", trade_amount=0.001, interval=60):
+        """
+        Runs the trading bot in a continuous loop, fetching data, analyzing it, and executing trades.
+
+        Parameters:
+        - symbol (str): Trading pair (default: 'BTCUSDT')
+        - timeframe (str): Timeframe for OHLCV data (default: '1h')
+        - trade_amount (float): Amount to trade per order (default: 0.001 BTC)
+        - interval (int): Time in seconds between data fetches (default: 60 seconds)
+        """
+        logging.info("Starting trading bot...")
+        self.synchronize_time()
+        self.initialize_exchange()
+
+        while True:
+            try:
+                logging.info(f"Fetching latest market data for {symbol}...")
+                df = self.fetch_data(symbol=symbol, timeframe=timeframe, limit=200)
+            
+                if df.empty:
+                    logging.warning("Received empty dataframe. Skipping this cycle.")
+                    time.sleep(interval)
+                    continue
+
+                # Calculate technical indicators
+                df = self.calculate_indicators(df)
+            
+                # Detect buy/sell signals
+                df = self.detect_signals(df)
+                latest_signal = df.iloc[-1]  # Get the most recent signal
+
+                logging.info(f"Latest signals - Buy: {latest_signal['Buy_Signal']}, Sell: {latest_signal['Sell_Signal']}")
+            
+                # Decision logic based on signals
+                if latest_signal["Buy_Signal"]:
+                    logging.info(f"BUY signal detected for {symbol} at price {latest_signal['close']}")
+                    self.execute_trading_decision("buy", symbol, trade_amount)
+                elif latest_signal["Sell_Signal"]:
+                    logging.info(f"SELL signal detected for {symbol} at price {latest_signal['close']}")
+                    self.execute_trading_decision("sell", symbol, trade_amount)
+                else:
+                    logging.info(f"No trade action taken for {symbol}. Holding position.")
+
+                # Wait before the next iteration
+                logging.info(f"Sleeping for {interval} seconds...")
+                time.sleep(interval)
+
+            except ccxt.NetworkError as e:
+                logging.error(f"Network error occurred: {e}. Retrying in {interval} seconds...")
+                time.sleep(interval)
+            except ccxt.ExchangeError as e:
+                logging.error(f"Exchange error occurred: {e}. Retrying in {interval} seconds...")
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                logging.info("Trading bot stopped by user.")
+                break
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}. Retrying in {interval} seconds...")
+                time.sleep(interval)
+
+
 
     def synchronize_time(self):
         try:
@@ -104,11 +167,16 @@ class TradingBot:
         try:
             df["Buy_Signal"] = (df["close"] > df["SMA_50"]) & (df["SMA_50"] > df["SMA_200"]) & (df["MACD"] > df["MACD_signal"]) & (df["RSI"] < 70)
             df["Sell_Signal"] = (df["close"] < df["SMA_50"]) & (df["SMA_50"] < df["SMA_200"]) & (df["MACD"] < df["MACD_signal"]) & (df["RSI"] > 30)
-            logging.info("Signals generated successfully.")
+
+            # ✅ ADD THIS DEBUG LOGGING
+            latest_signal = df.iloc[-1]  # Get latest row
+            logging.info(f"Latest Signals - Buy: {latest_signal['Buy_Signal']}, Sell: {latest_signal['Sell_Signal']}")
+        
             return df
         except Exception as e:
             logging.error(f"Error generating signals: {e}")
             raise e
+
 
     def place_order(self, action, price, symbol, amount):
         try:

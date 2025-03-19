@@ -132,11 +132,10 @@ class TradingEnv(gym.Env):
         self.position_size = 0
         self.entry_price = 0
         self.action_space = gym.spaces.Discrete(3)  # 0: Hold, 1: Buy, 2: Sell
-        self.observation_space = gym.spaces.Box(low=0, high=1, shape=(len(df.columns),), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=0, high=1, shape=(11,), dtype=np.float32) 
 
         # Observation space size = number of columns in df + portfolio state (balance, position_size)
         obs_space_size = len(df.columns) + 2
-        self.observation_space = gym.spaces.Box(low=0, high=1, shape=(obs_space_size,), dtype=np.float32)
 
         # Action space: 0 = Hold, 1 = Buy, 2 = Sell
         self.action_space = gym.spaces.Discrete(3)
@@ -151,6 +150,10 @@ class TradingEnv(gym.Env):
         self.position_size = 0
         self.entry_price = 0
         obs = self._next_observation()
+
+        # **Debugging output**
+        print(f"Observation shape at reset: {obs.shape}")  # Should print (11,)
+
         return obs, {}
 
     def step(self, action):
@@ -161,9 +164,9 @@ class TradingEnv(gym.Env):
         truncated = False  # In this example, there is no explicit truncation condition
 
         if 'close' not in self.df.columns:
-            raise KeyError(f"Expected column 'Close' not found in DataFrame. Available columns: {self.df.columns}")
+            raise KeyError(f"Expected column 'close' not found in DataFrame. Available columns: {self.df.columns}")
 
-        current_price = self.df.iloc[self.current_step]['Close']
+        current_price = self.df.iloc[self.current_step]['close']
 
         reward = self._take_action(action, current_price)
         obs = self._next_observation()
@@ -212,25 +215,25 @@ class TradingEnv(gym.Env):
     def _next_observation(self):
         df_filtered = self.df.drop(columns=['timestamp'], errors='ignore')
         obs = np.array(df_filtered.iloc[self.current_step].values, dtype=np.float32)
-        obs[np.isnan(obs)] = 0  # Replace NaNs with zeros
 
-        # Ensure obs has exactly 6 features before adding portfolio state
-        while obs.shape[0] < 6:
+        # Ensure obs has exactly 8 features before adding portfolio state
+        while obs.shape[0] < 8:
             obs = np.append(obs, 0)  # Pad with zeros if needed
-
-        while obs.shape[0] > 6:
+        while obs.shape[0] > 8:
             obs = obs[:-1]  # Trim extra features if necessary
 
-        # Portfolio state (balance and position size)
-        portfolio_state = np.array([float(self.balance), float(self.position_size)], dtype=np.float32)
+        # Portfolio state (balance, position size, leverage)
+        portfolio_state = np.array([self.balance, self.position_size, self.leverage], dtype=np.float32)
 
-        # Concatenate to ensure 8 features in total
+        # Concatenate to ensure exactly (11,) features
         obs = np.concatenate((obs, portfolio_state))
 
-        # Print for debugging
-        print(f"Final observation shape: {obs.shape}")
+        # **Debugging output**
+        print(f"Final observation shape: {obs.shape}")  # Should print (11,)
 
         return obs
+
+
 
     def render(self, mode='human'):
         print(f'Step: {self.current_step}, Balance: {self.balance}, Position: {self.position}')
@@ -324,7 +327,7 @@ if __name__ == "__main__":
         'Open': np.random.rand(1000),
         'High': np.random.rand(1000),
         'Low': np.random.rand(1000),
-        'Close': np.random.rand(1000)
+        'close': np.random.rand(1000)
     }
     df = pd.DataFrame(data)
 
@@ -332,8 +335,8 @@ if __name__ == "__main__":
     df = calculate_indicators(df)
 
     # Train LSTM model
-    model, scaler = build_and_train_model(df[['Close']])
-    predictions = predict_prices(model, scaler, df[['Close']])
+    model, scaler = build_and_train_model(df[['close']])
+    predictions = predict_prices(model, scaler, df[['close']])
     print(predictions)
 
     # Set up Trading Environment

@@ -30,16 +30,15 @@ def main():
     # Run the bot continuously
     while True:
         try:
-            # Initialize and run the trading bot
-            bot = TradingBot(exchange)  # Passing exchange if needed in bot initialization
+            # Initialize and run the trading bot with both exchange and API secret
+            bot = TradingBot(api_key, api_secret)  # ✅ Corrected
             bot.run()  # Assuming bot.run() starts the trading logic
         except Exception as e:
             print(f"Error occurred: {e}")
-            # Optionally log the error to a file or monitoring system
             with open('error_log.txt', 'a') as f:
                 f.write(f"Error: {e}\n")
-            # Add a retry delay
             time.sleep(10)
+
 
 if __name__ == "__main__":
     main()

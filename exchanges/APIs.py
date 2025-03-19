@@ -1,5 +1,6 @@
 # python exchanges\APIs.py
 
+import sys
 import ccxt
 import logging
 import time
@@ -12,14 +13,17 @@ from datetime import datetime, timezone
 log_file_path = r'D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\logs\\APIs.log'
 os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
+log_filename = "Api_file.log"
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_file_path),  # Log to a file
+        logging.FileHandler(log_file_path, mode='w'),  # Log to a file
         logging.StreamHandler()             # Log to the console
     ]
 )
+sys.stdout.flush()
+logging.info(f"Logging started. Writing logs to {log_filename}")
 
 # Specify the full path to the .env file
 dotenv_path = r'D:\\RAJESH FOLDER\\PROJECTS\\trade-robot\\config\\API.env'

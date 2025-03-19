@@ -1,9 +1,11 @@
-#python main.py
+#python main.py | Tee-Object -Append -FilePath trading_bot.log 
 
 import logging
 import sys
 import os
+import traceback
 import ccxt
+import numpy as np
 from retrying import retry
 import pandas as pd
 import time
@@ -25,9 +27,23 @@ from strategies.trading_strategy import build_and_train_model, predict_prices, t
 from trading.portfolio_management import calculate_returns, optimize_portfolio
 sys.path.append(os.path.join(os.path.dirname(__file__), 'trading'))
 
+
+
 # Set up logging for debugging and tracking
 def setup_logging():
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    log_filename = "trading_bot.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_filename, mode='w'),  # 'w' mode overwrites the file
+            logging.StreamHandler(sys.stdout)   # Logs to terminal
+        ]
+    )
+    sys.stdout.flush()
+    logging.info(f"Logging started. Writing logs to {log_filename}")
+
+
 
 # Load API credentials from environment variables
 def load_api_credentials():
@@ -62,20 +78,61 @@ def fetch_ohlcv_with_retry(exchange, symbol, timeframe='1h', limit=500):
 
 # Calculate technical indicators using the ta library
 def calculate_indicators(df):
+    """
+    Calculate key technical indicators for trading.
+
+    Parameters:
+    df (DataFrame): Input dataframe with 'close' price data.
+
+    Returns:
+    DataFrame: Updated dataframe with calculated indicators.
+    """
     try:
+        df = df.copy()  # Prevent modifying the original DataFrame
+
+        # Debug: Print initial columns
+        logging.info(f"Initial DataFrame columns: {df.columns}")
+
+        # Drop 'timestamp' column if it exists
+        if 'timestamp' in df.columns:
+            df = df.drop(columns=['timestamp'])
+            logging.info("Dropped 'timestamp' column.")
+
+        # Ensure the index is reset to avoid DatetimeIndex issues
+        if isinstance(df.index, pd.DatetimeIndex):
+            df = df.reset_index(drop=True)
+            logging.info("Reset index to remove DatetimeIndex.")
+
+        # Debug: Print columns after cleanup
+        logging.info(f"Columns after preprocessing: {df.columns}")
+
+        # Ensure all columns are numeric
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Debug: Check if any non-numeric values remain
+        non_numeric_cols = df.select_dtypes(exclude=[np.number]).columns
+        if len(non_numeric_cols) > 0:
+            logging.warning(f"Non-numeric columns found after conversion: {non_numeric_cols}")
+
+        # Calculate Moving Averages
         df['SMA_50'] = ta.trend.sma_indicator(df['close'], window=50)
         df['SMA_200'] = ta.trend.sma_indicator(df['close'], window=200)
         df['EMA_12'] = ta.trend.ema_indicator(df['close'], window=12)
         df['EMA_26'] = ta.trend.ema_indicator(df['close'], window=26)
+
+        # Compute MACD and RSI
         macd = ta.trend.MACD(df['close'])
         df['MACD'] = macd.macd()
         df['MACD_signal'] = macd.macd_signal()
         df['RSI'] = ta.momentum.rsi(df['close'], window=14)
-        logging.info("Calculated technical indicators")
+
+        logging.info("Technical indicators calculated successfully.")
         return df
+
     except Exception as e:
-        logging.error("Error calculating indicators: %s", e)
-        raise e
+        logging.error(f"Error calculating indicators: {e}")
+        raise
 
 # Define a simple moving average crossover trading strategy
 def trading_strategy(df, sma_short=50, sma_long=200):
@@ -153,6 +210,7 @@ def synchronize_time(exchange):
 # Main execution logic
 def main():
     # Set up logging
+    logging.info("Main function started.")
     setup_logging()
     
     # Load API credentials
@@ -207,12 +265,15 @@ def main():
         
         # Risk management based on market conditions
         if data.iloc[-1]['SMA_50'] > data.iloc[-1]['SMA_200']:
+            df_numeric = df.select_dtypes(include=[np.number])  # Keep only numeric columns
             stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0)
             take_profit = calculate_take_profit(data.iloc[-1]['close'], 1.0, stop_loss)
         elif data.iloc[-1]['SMA_50'] < data.iloc[-1]['SMA_200']:
+            df_numeric = df.select_dtypes(include=[np.number])  # Keep only numeric columns
             stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0 )
             take_profit = calculate_take_profit(data.iloc[-1]['close'], 1.0, stop_loss)
         else:
+            df_numeric = df.select_dtypes(include=[np.number])  # Keep only numeric columns
             stop_loss = calculate_stop_loss(data.iloc[-1]['close'], 1.0)
             take_profit = calculate_take_profit(data.iloc[-1]['close'], 1.0, stop_loss)
 
@@ -266,6 +327,7 @@ def main():
         logging.error("ValueError: %s", e)
     except Exception as e:
         logging.error("Unexpected error: %s", e)
+        logging.error(traceback.format_exc())  # Logs full traceback
 
 # Entry point
 if __name__ == "__main__":

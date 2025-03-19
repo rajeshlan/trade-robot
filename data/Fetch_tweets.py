@@ -43,10 +43,10 @@ def bearer_oauth(headers):
     return headers  # Return the modified headers dictionary
 
 
-def fetch_tweets_v2():
+def fetch_tweets_v2(max_retries=5):
     """
     Fetches tweets using Twitter API v2 endpoint with proper header handling.
-    Implements rate limit handling and retries.
+    Implements rate limit handling and retries up to max_retries.
     """
     url = "https://api.twitter.com/2/tweets/search/recent"
     params = {
@@ -57,33 +57,35 @@ def fetch_tweets_v2():
 
     headers = bearer_oauth({})  # Pass an empty dictionary and modify it
 
-    try:
-        response = requests.get(url, headers=headers, params=params)
+    for attempt in range(max_retries):  # Limit retries
+        try:
+            response = requests.get(url, headers=headers, params=params)
 
-        if response.status_code == 200:
-            data = response.json()
-            if 'data' in data:
-                return [
-                    {
-                        "text": tweet['text'],
-                        "label": label_sentiment(tweet['text'])
-                    }
-                    for tweet in data['data']
-                ], None
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data:
+                    return [
+                        {
+                            "text": tweet['text'],
+                            "label": label_sentiment(tweet['text'])
+                        }
+                        for tweet in data['data']
+                    ], None
+                else:
+                    return None, "No data found in response."
+
+            elif response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 3))
+                print(f"Rate limit hit. Retrying after {retry_after} seconds... (Attempt {attempt+1}/{max_retries})")
+                time.sleep(retry_after)  # Wait and retry
             else:
-                return None, "No data found in response."
-        
-        elif response.status_code == 429:
-            retry_after = int(response.headers.get("Retry-After", 3))
-            print(f"Rate limit hit. Retrying after {retry_after} seconds...")
-            time.sleep(retry_after)
-            return fetch_tweets_v2()  # Retry after waiting
+                return None, f"Error {response.status_code}: {response.text}"
 
-        else:
-            return None, f"Error {response.status_code}: {response.text}"
+        except Exception as e:
+            return None, f"Exception occurred: {str(e)}"
 
-    except Exception as e:
-        return None, f"Exception occurred: {str(e)}"
+    return None, f"Max retries ({max_retries}) exceeded. Failed to fetch tweets."
+
 
 def fetch_tweets_v1():
     """

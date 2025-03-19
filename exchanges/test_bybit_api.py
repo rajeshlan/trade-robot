@@ -50,7 +50,7 @@ def predict_price(df):
     model.fit(X, y)
 
     # Predict the next price point
-    next_time = [[df['time'].max() + 3600]]  # Predict 1 hour ahead
+    next_time = pd.DataFrame([[df['time'].max() + 3600]], columns=['time'])  # Ensure valid feature name
     predicted_price = model.predict(next_time)
     logging.info(f"Predicted price for next hour: {predicted_price[0]}")
     return predicted_price[0]
@@ -79,7 +79,7 @@ def test_api_credentials(api_key, api_secret):
         predicted_price = predict_price(historical_data)
 
         # Check if the predicted price is realistic
-        if predicted_price > 50000:  # Example threshold to prevent placing unreasonable orders
+        if predicted_price > 10000:  # Example threshold to prevent placing unreasonable orders
             logging.warning("Predicted price is too high for this test, skipping order.")
             return
 

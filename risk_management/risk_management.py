@@ -246,6 +246,7 @@ def train_model(X, y):
 def calculate_stop_loss(entry_price, risk_percentage, leverage=1):
     """Calculate stop-loss price based on risk percentage and leverage."""
     try:
+        entry_price = float(entry_price)  # Ensure entry_price is a valid number
         logging.debug(f"Calculating stop-loss for entry_price={entry_price}, risk_percentage={risk_percentage}, leverage={leverage}...")
         stop_loss = entry_price * (1 - (risk_percentage / 100) / leverage)  # Stop-loss formula
         logging.info(f"Calculated stop-loss: {stop_loss}")
@@ -253,6 +254,8 @@ def calculate_stop_loss(entry_price, risk_percentage, leverage=1):
     except Exception as e:
         logging.error(f"Error calculating stop-loss: {e}")
         raise e
+
+
 
 def calculate_take_profit(entry_price, risk_reward_ratio, stop_loss):
     """Calculate take-profit price based on risk-reward ratio and stop-loss."""
