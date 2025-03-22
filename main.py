@@ -68,13 +68,18 @@ def initialize_exchange(api_key, api_secret):
 def fetch_ohlcv_with_retry(exchange, symbol, timeframe='1h', limit=500):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        if not ohlcv or len(ohlcv) == 0:
+            logging.error(f"Fetched empty OHLCV data for {symbol}")
+            return pd.DataFrame()  # Return an empty DataFrame to avoid KeyError
+
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         logging.info(f"Fetched OHLCV data for {symbol}")
         return df
     except ccxt.BaseError as e:
         logging.error("Error fetching OHLCV data: %s", e)
-        raise e
+        return pd.DataFrame()  # Ensure an empty DataFrame is returned on failure
+
 
 # Calculate technical indicators using the ta library
 def calculate_indicators(df):
@@ -88,6 +93,14 @@ def calculate_indicators(df):
     DataFrame: Updated dataframe with calculated indicators.
     """
     try:
+        if df.empty:
+            logging.error("DataFrame is empty. Skipping indicator calculation.")
+            return df  # Return empty DataFrame
+
+        if 'close' not in df.columns:
+            logging.error("Column 'close' not found in DataFrame. Skipping indicator calculation.")
+            return df  # Return original DataFrame
+
         df = df.copy()  # Prevent modifying the original DataFrame
 
         # Debug: Print initial columns
@@ -133,6 +146,7 @@ def calculate_indicators(df):
     except Exception as e:
         logging.error(f"Error calculating indicators: {e}")
         raise
+
 
 # Define a simple moving average crossover trading strategy
 def trading_strategy(df, sma_short=50, sma_long=200):
@@ -303,13 +317,44 @@ def main():
         print(f"Optimal asset allocation: {optimal_weights}")
 
         # RL trading decision
-        obs = df.iloc[-1].values
+        # Ensure df includes technical indicators
+        df_with_indicators = calculate_indicators(df)
+
+        # Drop non-numeric columns and ensure obs has exactly 11 features
+        df_numeric = df_with_indicators.select_dtypes(include=[np.number])
+
+        # Select the required 11 features for the RL model
+        expected_features = ['open', 'high', 'low', 'close', 'volume', 'SMA_50', 'SMA_200', 'EMA_12', 'EMA_26', 'MACD', 'RSI']
+
+        # Ensure all required features exist
+        missing_features = [feat for feat in expected_features if feat not in df_numeric.columns]
+        if missing_features:
+            raise ValueError(f"Missing expected features in DataFrame: {missing_features}")
+
+        # Extract observation vector (last row with exactly 11 features)
+        obs = df_numeric[expected_features].iloc[-1].values
+
+        # Debug: Print the shape before passing to RL model
+        logging.info(f"Final observation shape passed to RL model: {obs.shape}")
+
+        # Ensure shape matches (11,)
+        if obs.shape[0] != 11:
+            raise ValueError(f"Incorrect observation shape: {obs.shape}, expected (11,)")
+
+        # Pass the corrected observation to the RL model
         rl_action = rl_trading_decision(rl_model, obs)
 
+
+        # Extract the actual sentiment score from the dictionary
+        if isinstance(sentiment_score, dict) and 'compound' in sentiment_score:
+            sentiment_value = sentiment_score['compound']
+        else:
+            raise ValueError(f"Unexpected sentiment_score format: {sentiment_score}")
+
         # Sentiment-based decision
-        if sentiment_score > 0.1:
+        if sentiment_value > 0.1:
             decision = 'buy'
-        elif sentiment_score < -0.1:
+        elif sentiment_value < -0.1:
             decision = 'sell'
         else:
             decision = 'hold'

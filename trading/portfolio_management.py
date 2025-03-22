@@ -126,23 +126,93 @@ def adjust_portfolio_based_on_sentiment(portfolio):
 
 # Portfolio Optimization Functions
 def calculate_returns(df):
-    returns = df.pct_change().mean() * 252
-    cov_matrix = df.pct_change().cov() * 252
-    return returns, cov_matrix
+    """
+    Calculate asset returns and covariance matrix for portfolio optimization.
 
-def portfolio_performance(weights, returns, cov_matrix, risk_free_rate):
-    portfolio_return = np.dot(weights, returns)
-    portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+    Parameters:
+    df (DataFrame): DataFrame containing historical asset prices.
+
+    Returns:
+    Tuple (DataFrame, DataFrame): Returns DataFrame and covariance matrix.
+    """
+    try:
+        if df.empty:
+            logging.error("DataFrame is empty. Cannot calculate returns.")
+            return pd.DataFrame(), pd.DataFrame()
+
+        # Ensure we only use numeric columns (drop 'timestamp' and other non-numeric data)
+        df_numeric = df.select_dtypes(include=[np.number])
+
+        if df_numeric.empty:
+            logging.error("No numeric columns available for return calculations.")
+            return pd.DataFrame(), pd.DataFrame()
+
+        # Compute daily returns
+        returns = df_numeric.pct_change().dropna()
+        cov_matrix = returns.cov()
+
+        logging.info("Returns and covariance matrix calculated successfully.")
+        return returns, cov_matrix
+
+    except Exception as e:
+        logging.error(f"Error in calculate_returns: {e}")
+        raise
+
+
+def portfolio_performance(weights, expected_returns, cov_matrix, risk_free_rate):
+    """
+    Calculate portfolio performance: Sharpe Ratio = (Return - Risk-Free Rate) / Volatility
+    """
+    portfolio_return = np.dot(weights, expected_returns)  # (1xN) · (N,)
+    portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))  # sqrt((1xN) · (NxN) · (Nx1))
     sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility
-    return -sharpe_ratio
+    return -sharpe_ratio  # Negative Sharpe Ratio (since we minimize)
 
 def optimize_portfolio(returns, cov_matrix, risk_free_rate=0.01):
-    num_assets = len(returns)
-    args = (returns, cov_matrix, risk_free_rate)
-    constraints = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}
-    bounds = tuple((0, 1) for asset in range(num_assets))
-    result = minimize(portfolio_performance, num_assets * [1. / num_assets, ], args=args, method='SLSQP', bounds=bounds, constraints=constraints)
-    return result.x
+    """
+    Optimize portfolio allocation using mean-variance optimization.
+    
+    Parameters:
+    - returns (DataFrame): Asset returns.
+    - cov_matrix (DataFrame): Covariance matrix.
+    - risk_free_rate (float): Risk-free rate for Sharpe ratio calculation.
+
+    Returns:
+    - np.array: Optimal asset allocation weights.
+    """
+    try:
+        if returns.empty or cov_matrix.empty:
+            logging.error("Empty returns or covariance matrix. Cannot optimize portfolio.")
+            return np.zeros(cov_matrix.shape[0])  # Return zero allocation if data is invalid
+
+        num_assets = cov_matrix.shape[0]  # Number of assets
+
+        # Compute expected returns (column-wise mean)
+        expected_returns = np.array(returns.mean(axis=0)).reshape(-1,)  # (N,)
+
+        # Constraints: Sum of weights must be 1
+        constraints = {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}
+
+        # Bounds: Each asset weight must be between 0 and 1 (no short-selling)
+        bounds = tuple((0, 1) for _ in range(num_assets))
+
+        # Initial guess: Evenly distribute weights
+        initial_weights = np.ones(num_assets) / num_assets
+
+        # Run optimization using Sharpe ratio maximization
+        result = minimize(portfolio_performance, initial_weights, args=(expected_returns, cov_matrix, risk_free_rate),
+                          method='SLSQP', bounds=bounds, constraints=constraints)
+
+        if not result.success:
+            logging.error(f"Portfolio optimization failed: {result.message}")
+            return np.ones(num_assets) / num_assets  # Return equal weights as fallback
+
+        logging.info("Portfolio optimization successful.")
+        return result.x  # Optimal weights
+
+    except Exception as e:
+        logging.error(f"Error in optimize_portfolio: {e}")
+        return np.zeros(cov_matrix.shape[0])  # Return zero allocation in case of error
 
 def build_portfolio_model(input_dim):
     model = MLPRegressor(hidden_layer_sizes=(64, 32), activation='relu', solver='adam', max_iter=500)

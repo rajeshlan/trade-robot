@@ -1,3 +1,6 @@
+# Trade-Robot
+
+```
 Trade-Robot/
 |
 ├── .vscode/                      # VSCode specific configuration
@@ -42,8 +45,8 @@ Trade-Robot/
 │   ├── app.py                   # Main application logic
 │   ├── example_usage.py         # Example usages and workflows
 │   ├── readdb.py                # Database reading utilities
-│   └── run.py                   # Script to launch the bot
-|   └── tempCodeRunnerFile.py
+│   ├── run.py                   # Script to launch the bot
+│   └── tempCodeRunnerFile.py    # Temporary file for code execution
 |
 ├── static/                       # Static assets like images or styling
 │   └── moving_averages.png      # Example visualization
@@ -55,8 +58,8 @@ Trade-Robot/
 │   └── visualizations.py        # Data visualization utilities
 |
 ├── templates/                    # HTML templates for web dashboards
-│   └── dashboard.html         # Monitoring dashboard template
-│   └── error.html           # Error page template
+│   ├── dashboard.html           # Monitoring dashboard template
+│   └── error.html               # Error page template
 |
 ├── tests/                        # Unit and integration tests
 │   ├── test_model.h5            # Model testing data
@@ -64,11 +67,11 @@ Trade-Robot/
 │   ├── test_tokenizer.json      # Tokenizer test configuration
 │   └── test_trading_bot.py      # Core trading bot tests
 |
-├── trading/                    # Core trading functionalities   
-├── Placing_Orders.py           # Manages order placement          
-├── portfolio_management.py     # Handles portfolio allocation      
-├── price_prediction.py         # Predicts price trends            
-├── tradingbot.py               # Main trading bot logic 
+├── trading/                      # Core trading functionalities   
+│   ├── Placing_Orders.py        # Manages order placement          
+│   ├── portfolio_management.py  # Handles portfolio allocation      
+│   ├── price_prediction.py      # Predicts price trends            
+│   └── tradingbot.py            # Main trading bot logic           
 |
 ├── main.py                       # Entry point for the trading bot
 ├── .gitignore                    # Files to exclude from version control
@@ -77,16 +80,14 @@ Trade-Robot/
 ├── monitoring.log                # Log file for monitoring metrics
 ├── script.log                    # General application logs
 └── trade_bot.db                  # Database file for the trading bot
-
-
-
+```
 
 # Trade Robot Project
 
 ## Overview
 
-The Trade Robot is a comprehensive project designed for algorithmic trading. 
-It integrates machine learning models, sentiment analysis, and technical indicators to optimize trading strategies. 
+The Trade Robot is a comprehensive project designed for algorithmic trading.
+It integrates machine learning models, sentiment analysis, and technical indicators to optimize trading strategies.
 The project also includes tools for data fetching, risk management, monitoring, and visualization.
 
 ---
@@ -94,7 +95,6 @@ The project also includes tools for data fetching, risk management, monitoring, 
 ## Project Structure
 
 ### Root Directory
-
 - `.gitignore`: Specifies files and directories to be ignored by Git.
 - `main.py`: The entry point of the application.
 - `README.md`: Documentation for the project.
@@ -177,6 +177,7 @@ Implements trading strategies and analytics.
 Holds HTML templates for the dashboard.
 
 - `dashboard.html`: HTML template for the monitoring dashboard.
+- `error.html`: Error page template.
 
 ### Tests
 
@@ -246,5 +247,4 @@ Handles core trading functionalities.
 - Improve model accuracy with advanced machine learning techniques.
 - Implement real-time trading strategy adjustments.
 - Enhance the user interface for the monitoring dashboard.
-
 

@@ -1,5 +1,4 @@
-## run with python -m scripts.app  (need checking) as gives quite some errors on http://127.0.0.1:5000/
-
+## run with python -m scripts.app  (fixed static folder issue)
 import sys
 import os
 import matplotlib
@@ -15,18 +14,26 @@ matplotlib.use('Agg')
 # Add the project root directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-app = Flask(__name__)
+# Initialize Flask app with proper static folder path
+app = Flask(__name__, template_folder="../templates", static_folder="../static")
 
 @app.route("/")
 def home():
-    # Fetch data and generate required visualizations
-    df = fetch_data_from_bybit()
-    if not df.empty:
-        # Plot moving averages (now saved to a file instead of trying to display interactively)
-        plot_moving_averages(df)
+    """
+    Fetches data from Bybit and generates the required visualizations.
+    Passes a flag to the template to check if data was available.
+    """
+    df = fetch_data_from_bybit()  # Fetch data from Bybit
+    data_available = False  # Initialize flag
 
-    # Serve Dashboard HTML (you'd have to set this up with Flask templates)
-    return render_template('dashboard.html')
+    if not df.empty:  # Check if DataFrame has data
+        # Save the image in the correct static folder
+        static_file_path = os.path.join(app.static_folder, 'moving_averages.png')
+        plot_moving_averages(df, save_path=static_file_path)
+        data_available = True  # Set flag to True if data is available
+
+    # Pass the flag to the template to conditionally render content
+    return render_template('dashboard.html', data_available=data_available)
 
 if __name__ == "__main__":
     app.run(debug=True)

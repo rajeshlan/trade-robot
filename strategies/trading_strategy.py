@@ -1,4 +1,4 @@
-#python -m strategies.trading_strategy (RUN WITH THIS) needs checking
+#python -m strategies.trading_strategy (RUN WITH THIS) works fine
 
 import subprocess
 import sys

@@ -145,10 +145,13 @@ def plot_moving_averages(df, save_path="static/moving_averages.png"):
     plt.legend()
     plt.title("Moving Averages")
     plt.grid()
-    plt.savefig(save_path)
-    plt.close()
-    logging.info(f"Moving averages plot saved to {save_path}")
 
+    # Handle absolute path with Flask static folder
+    abs_save_path = os.path.abspath(save_path)
+    logging.info(f"Saving plot to {abs_save_path}...")  # Debug log before saving
+    plt.savefig(abs_save_path)
+    plt.close()
+    logging.info(f"Moving averages plot successfully saved to {abs_save_path}")
 
 if __name__ == "__main__":
     try:

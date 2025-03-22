@@ -178,9 +178,9 @@ def main():
         logging.info("Storing historical data to database.")
         store_data_to_db(conn, "historical_data", historical_data)
 
-        # Fetch data from DB
+        # Fetch data from DB (Fix: Removed conn from the function call)
         logging.info("Fetching data back from database for analysis.")
-        df = fetch_historical_data(conn, "historical_data")
+        df = fetch_historical_data("historical_data")
 
         # Predict prices
         logging.info("Performing price prediction.")
@@ -196,6 +196,7 @@ def main():
         if 'conn' in locals():
             conn.close()
             logging.info("Database connection closed.")
+        
 
 if __name__ == "__main__":
     main()

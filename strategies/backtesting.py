@@ -230,8 +230,11 @@ def main():
     try:
         order = place_order(exchange, symbol, side, amount)
         logger.info(f"Order placed: {order}")
+    except ccxt.InsufficientFunds as e:
+        logger.error("Insufficient balance to place the order. Please add funds.")
     except Exception as e:
         logger.error(f"Error placing order: {e}")
+
 
 if __name__ == '__main__':
     try:
